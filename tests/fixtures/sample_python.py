@@ -3,9 +3,6 @@
 This module contains various Python constructs to test symbol detection.
 """
 
-import os
-from typing import List, Optional
-
 # Constants
 MAX_RETRIES = 3
 DEFAULT_TIMEOUT = 30

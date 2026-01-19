@@ -51,8 +51,7 @@ dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "black>=23.0.0",
-    "isort>=5.12.0",
-    "flake8>=6.0.0",
+    "ruff>=0.1.0",
     "mypy>=1.0.0",
     "build>=1.0.0",
     "twine>=4.0.0",
@@ -134,3 +133,28 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+
+# Ruff configuration (replaces flake8 and isort)
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+]
+ignore = [
+    "E203",   # Whitespace before ':' (conflicts with black)
+    "E501",   # Line too long (handled by black)
+    "E722",   # Do not use bare 'except' (too strict for this codebase)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["code_map_navigator"]

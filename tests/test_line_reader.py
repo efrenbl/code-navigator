@@ -145,7 +145,7 @@ class TestReadSymbol:
         assert "skipped_lines" in result
 
         # Check for ellipsis marker
-        ellipsis_line = [l for l in result["lines"] if l["num"] is None]
+        ellipsis_line = [line for line in result["lines"] if line["num"] is None]
         assert len(ellipsis_line) == 1
         assert "omitted" in ellipsis_line[0]["content"]
 
@@ -155,7 +155,7 @@ class TestReadSymbol:
 
         assert "error" not in result
         # Should have context lines (in_range=False)
-        context_lines = [l for l in result["lines"] if not l["in_range"]]
+        context_lines = [line for line in result["lines"] if not line["in_range"]]
         assert len(context_lines) > 0
 
 

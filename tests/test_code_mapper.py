@@ -1,15 +1,11 @@
 """Tests for the code_mapper module."""
 
-import json
-import os
 import tempfile
 from pathlib import Path
 
 import pytest
 
 from code_map_navigator.code_mapper import (
-    DEFAULT_IGNORE_PATTERNS,
-    LANGUAGE_EXTENSIONS,
     CodeMapper,
     GenericAnalyzer,
     PythonAnalyzer,
@@ -302,8 +298,9 @@ class App:
             assert result["stats"]["files_processed"] == 1
             assert result["stats"]["symbols_found"] >= 2  # main + App
 
-            # Check files map
-            assert "src/main.py" in result["files"]
+            # Check files map (normalize path separators for Windows compatibility)
+            file_keys = [k.replace("\\", "/") for k in result["files"].keys()]
+            assert "src/main.py" in file_keys
 
             # Check index
             assert "main" in result["index"]

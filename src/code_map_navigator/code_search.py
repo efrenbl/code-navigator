@@ -25,8 +25,7 @@ import re
 import sys
 from dataclasses import dataclass
 from difflib import SequenceMatcher
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 __version__ = "1.0.1"
 
@@ -129,7 +128,7 @@ class CodeSearcher:
         Returns:
             Parsed code map dictionary.
         """
-        with open(self.map_path, "r", encoding="utf-8") as f:
+        with open(self.map_path, encoding="utf-8") as f:
             return json.load(f)
 
     def _similarity(self, a: str, b: str) -> float:

@@ -19,11 +19,9 @@ Example:
 
 import argparse
 import json
-import os
 import re
-import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 __version__ = "1.0.1"
 
@@ -99,7 +97,7 @@ class LineReader:
             return {"error": f"File not found: {file_path}"}
 
         try:
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
+            with open(path, encoding="utf-8", errors="replace") as f:
                 all_lines = f.readlines()
         except Exception as e:
             return {"error": f"Failed to read file: {e}"}
@@ -157,7 +155,7 @@ class LineReader:
             return {"error": f"File not found: {file_path}"}
 
         try:
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
+            with open(path, encoding="utf-8", errors="replace") as f:
                 all_lines = f.readlines()
         except Exception as e:
             return {"error": f"Failed to read file: {e}"}
@@ -249,7 +247,7 @@ class LineReader:
             return {"error": f"File not found: {file_path}"}
 
         try:
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
+            with open(path, encoding="utf-8", errors="replace") as f:
                 all_lines = f.readlines()
         except Exception as e:
             return {"error": f"Failed to read file: {e}"}
@@ -353,7 +351,7 @@ class LineReader:
             return {"error": f"File not found: {file_path}"}
 
         try:
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
+            with open(path, encoding="utf-8", errors="replace") as f:
                 all_lines = f.readlines()
         except Exception as e:
             return {"error": f"Failed to read file: {e}"}
@@ -504,7 +502,7 @@ def main():
         # Default: show file info
         path = reader._resolve_path(args.file)
         if path.exists():
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
+            with open(path, encoding="utf-8", errors="replace") as f:
                 lines = f.readlines()
             result = {
                 "file": args.file,

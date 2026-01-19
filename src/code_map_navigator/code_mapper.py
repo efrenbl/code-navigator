@@ -27,7 +27,7 @@ import hashlib
 import json
 import os
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -552,7 +552,7 @@ class CodeMapper:
             List of Symbol objects found in the file.
         """
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
             rel_path = str(file_path.relative_to(self.root_path))
