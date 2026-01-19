@@ -1,7 +1,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.8+-blue.svg" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License">
-  <img src="https://img.shields.io/badge/version-1.1.0-orange.svg" alt="Version 1.1.0">
+  <img src="https://img.shields.io/badge/version-1.2.0-orange.svg" alt="Version 1.2.0">
   <img src="https://github.com/efrenbl/claude-code-navigator/actions/workflows/ci.yml/badge.svg" alt="CI Status">
 </p>
 

@@ -6,6 +6,32 @@ This document tracks potential improvements and enhancements for the project.
 
 ## Completed
 
+### Terminal colors
+**Status:** Completed in v1.2.0
+
+Added colored output for better terminal readability:
+
+```bash
+# Table format with colors
+code-search --stats -o table
+code-search "User" -o table
+
+# Code output with colors
+code-read src/api.py 10-20 -o code
+
+# Disable colors
+code-search --stats -o table --no-color
+```
+
+Color scheme:
+- Green: found symbols, success messages
+- Cyan: file paths, line numbers
+- Magenta: symbol types
+- Yellow: line ranges
+- Dim: context lines
+
+Respects `NO_COLOR` environment variable.
+
 ### Pretty output by default
 **Status:** Completed in v1.1.0
 
@@ -98,20 +124,12 @@ code-search "user" -m .codemap.json
 
 ### Low Priority
 
-#### 7. Terminal colors
-**Effort:** Low | **Impact:** Low
-
-Add colors to terminal output:
-- Green: found symbols
-- Yellow: context lines
-- Cyan: line numbers
-
-#### 8. Shell autocompletion
+#### 7. Shell autocompletion
 **Effort:** Medium | **Impact:** Low
 
 Generate bash/zsh completion scripts with symbol names from codemap.
 
-#### 9. Watch mode
+#### 8. Watch mode
 **Effort:** Medium | **Impact:** Low
 
 ```bash
@@ -120,7 +138,7 @@ code-map . --watch
 
 Automatically update map when files change.
 
-#### 10. Export formats
+#### 9. Export formats
 **Effort:** Low | **Impact:** Low
 
 Export map in different formats:

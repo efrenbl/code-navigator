@@ -16,6 +16,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nothing yet
 
+## [1.2.0] - 2026-01-19
+
+### Added
+- **Terminal colors**: Colored output for better readability in terminal
+- New `colors.py` module with ANSI color support
+- `--no-color` flag for all commands to disable colors
+- New `-o table` format for `code-search` with colored, human-readable output
+- Colored output for `code-read -o code` format
+- Colored success/stats messages for `code-map`
+- Respects `NO_COLOR` and `FORCE_COLOR` environment variables
+- Auto-detection of terminal color support (TTY, Windows Terminal, etc.)
+
+### Color Scheme
+- Green: Found symbols, success messages
+- Cyan: File paths, line numbers, info
+- Magenta: Symbol types
+- Yellow: Line ranges, warnings
+- Dim: Context lines, less prominent text
+
 ## [1.1.0] - 2026-01-19
 
 ### Changed
@@ -90,6 +109,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 1.2.0 | 2026-01-19 | Terminal colors, `--no-color` flag, table format |
 | 1.1.0 | 2026-01-19 | Pretty output by default, `--compact` flag |
 | 1.0.1 | 2026-01-19 | Added `list_by_type()`, CLI improvements |
 | 1.0.0 | 2024-01-15 | Initial release |
@@ -110,7 +130,8 @@ None at this time.
 
 ---
 
-[Unreleased]: https://github.com/efrenbl/claude-code-navigator/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/efrenbl/claude-code-navigator/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/efrenbl/claude-code-navigator/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/efrenbl/claude-code-navigator/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/efrenbl/claude-code-navigator/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/efrenbl/claude-code-navigator/releases/tag/v1.0.0

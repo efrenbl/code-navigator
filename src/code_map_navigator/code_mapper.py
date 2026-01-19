@@ -32,7 +32,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-__version__ = "1.1.0"
+from .colors import get_colors
+
+__version__ = "1.2.0"
 
 # Supported languages and their extensions
 LANGUAGE_EXTENSIONS = {
@@ -675,6 +677,7 @@ def main():
     parser.add_argument(
         "--compact", action="store_true", help="Output compact JSON (default: pretty-printed)"
     )
+    parser.add_argument("--no-color", action="store_true", help="Disable colored output")
     parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__}")
 
     args = parser.parse_args()
@@ -696,9 +699,13 @@ def main():
         else:
             json.dump(code_map, f, indent=2)
 
-    print(f"\n✓ Code map generated: {output_path}", file=sys.stderr)
-    print(f"  Files processed: {code_map['stats']['files_processed']}", file=sys.stderr)
-    print(f"  Symbols found: {code_map['stats']['symbols_found']}", file=sys.stderr)
+    c = get_colors(no_color=args.no_color)
+    print(f"\n{c.success('✓')} Code map generated: {c.cyan(output_path)}", file=sys.stderr)
+    print(
+        f"  Files processed: {c.green(str(code_map['stats']['files_processed']))}",
+        file=sys.stderr,
+    )
+    print(f"  Symbols found: {c.green(str(code_map['stats']['symbols_found']))}", file=sys.stderr)
 
     summary = {"output": output_path, "stats": code_map["stats"]}
     if args.compact:

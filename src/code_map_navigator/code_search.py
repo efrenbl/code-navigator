@@ -25,9 +25,11 @@ import re
 import sys
 from dataclasses import dataclass
 from difflib import SequenceMatcher
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
-__version__ = "1.1.0"
+from .colors import get_colors
+
+__version__ = "1.2.0"
 
 
 @dataclass
@@ -481,6 +483,104 @@ class CodeSearcher:
         return results[:limit]
 
 
+def format_search_output(
+    result: Union[Dict, List],
+    style: str = "json",
+    compact: bool = False,
+    no_color: bool = False,
+) -> str:
+    """Format search results for display.
+
+    Args:
+        result: Search results (dict or list of dicts).
+        style: Output style ('json' or 'table').
+        compact: If True, output compact JSON.
+        no_color: If True, disable colored output.
+
+    Returns:
+        Formatted string representation.
+    """
+    if style == "json":
+        if compact:
+            return json.dumps(result, separators=(",", ":"))
+        return json.dumps(result, indent=2)
+
+    # Table format with colors
+    c = get_colors(no_color=no_color)
+
+    if isinstance(result, dict):
+        # Handle error
+        if "error" in result:
+            return c.error(f"Error: {result['error']}")
+
+        # Handle stats
+        if "total_symbols" in result:
+            output = [c.bold("Codebase Statistics")]
+            output.append(f"  Root: {c.cyan(result.get('root', 'N/A'))}")
+            output.append(f"  Files: {c.green(str(result.get('files', 0)))}")
+            output.append(f"  Symbols: {c.green(str(result.get('total_symbols', 0)))}")
+            if "by_type" in result:
+                output.append("  By type:")
+                for type_name, count in result["by_type"].items():
+                    output.append(f"    {c.magenta(type_name)}: {count}")
+            return "\n".join(output)
+
+        # Handle file structure
+        if "symbols" in result:
+            output = [c.bold(f"Structure: {c.cyan(result.get('file', 'Unknown'))}")]
+            for sym in result.get("symbols", []):
+                sym_type = c.magenta(f"[{sym.get('type', '?')}]")
+                sym_name = c.green(sym.get("name", "?"))
+                lines = sym.get("lines", [0, 0])
+                line_range = c.cyan(f":{lines[0]}-{lines[1]}")
+                output.append(f"  {sym_type} {sym_name}{line_range}")
+            return "\n".join(output)
+
+        # Handle dependencies
+        if "calls" in result or "called_by" in result:
+            output = [c.bold(f"Dependencies: {c.green(result.get('symbol', 'Unknown'))}")]
+            if result.get("calls"):
+                output.append("  Calls:")
+                for call in result["calls"]:
+                    output.append(f"    {c.cyan(call)}")
+            if result.get("called_by"):
+                output.append("  Called by:")
+                for caller in result["called_by"]:
+                    output.append(f"    {c.cyan(caller)}")
+            if not result.get("calls") and not result.get("called_by"):
+                output.append(c.dim("  No dependencies found"))
+            return "\n".join(output)
+
+        # Fallback to JSON for unknown dict structures
+        return json.dumps(result, indent=2)
+
+    # Handle list of search results
+    if isinstance(result, list):
+        if not result:
+            return c.dim("No results found")
+
+        output = []
+        for item in result:
+            sym_type = c.magenta(f"[{item.get('type', '?')}]")
+            sym_name = c.green(item.get("name", "?"))
+            file_path = c.cyan(item.get("file", "?"))
+            lines = item.get("lines", [0, 0])
+            line_range = f"{lines[0]}-{lines[1]}"
+
+            output.append(f"{sym_type} {sym_name}")
+            output.append(f"    {file_path}:{c.yellow(line_range)}")
+
+            if item.get("signature"):
+                sig = item["signature"]
+                if len(sig) > 60:
+                    sig = sig[:57] + "..."
+                output.append(f"    {c.dim(sig)}")
+
+        return "\n".join(output)
+
+    return str(result)
+
+
 def main():
     """Command-line interface for code search.
 
@@ -521,6 +621,14 @@ def main():
     parser.add_argument(
         "--compact", action="store_true", help="Output compact JSON (default: pretty-printed)"
     )
+    parser.add_argument(
+        "-o",
+        "--output",
+        choices=["json", "table"],
+        default="json",
+        help="Output format (default: json)",
+    )
+    parser.add_argument("--no-color", action="store_true", help="Disable colored output")
     parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__}")
 
     args = parser.parse_args()
@@ -571,10 +679,14 @@ def main():
         }
 
     # Output
-    if args.compact:
-        print(json.dumps(result, separators=(",", ":")))
-    else:
-        print(json.dumps(result, indent=2))
+    print(
+        format_search_output(
+            result,
+            style=args.output,
+            compact=args.compact,
+            no_color=args.no_color,
+        )
+    )
 
 
 if __name__ == "__main__":
