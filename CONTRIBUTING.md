@@ -35,7 +35,7 @@ This project follows a simple code of conduct: be respectful, be constructive, a
 
 3. Add the upstream remote:
    ```bash
-   git remote add upstream https://github.com/yourusername/claude-code-navigator.git
+   git remote add upstream https://github.com/efrenbl/claude-code-navigator.git
    ```
 
 ## Development Setup

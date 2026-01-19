@@ -243,8 +243,8 @@ class TestFormatOutput:
         output = format_output(result, "code")
 
         assert "# test.py" in output
-        assert "> 1 |" in output  # In range
-        assert "  2 |" in output  # Not in range
+        assert ">   1 |" in output  # In range (4-char padding for line number)
+        assert "    2 |" in output  # Not in range
 
     def test_format_error(self):
         """Test formatting error result."""

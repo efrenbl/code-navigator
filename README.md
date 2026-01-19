@@ -2,7 +2,7 @@
   <img src="https://img.shields.io/badge/python-3.8+-blue.svg" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License">
   <img src="https://img.shields.io/badge/version-1.0.0-orange.svg" alt="Version 1.0.0">
-  <img src="https://github.com/yourusername/claude-code-navigator/actions/workflows/ci.yml/badge.svg" alt="CI Status">
+  <img src="https://github.com/efrenbl/claude-code-navigator/actions/workflows/ci.yml/badge.svg" alt="CI Status">
 </p>
 
 <h1 align="center">🧭 Claude Code Navigator</h1>
@@ -77,7 +77,7 @@ Claude Code Navigator creates a lightweight index of your codebase **locally**, 
 pip install claude-code-navigator
 
 # Or clone and install locally
-git clone https://github.com/yourusername/claude-code-navigator.git
+git clone https://github.com/efrenbl/claude-code-navigator.git
 cd claude-code-navigator
 pip install -e .
 ```
@@ -410,7 +410,7 @@ pipx install claude-code-navigator
 ### Option 3: From source
 
 ```bash
-git clone https://github.com/yourusername/claude-code-navigator.git
+git clone https://github.com/efrenbl/claude-code-navigator.git
 cd claude-code-navigator
 pip install -e .
 ```

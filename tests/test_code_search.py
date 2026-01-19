@@ -306,3 +306,57 @@ class TestSearchScoring:
 
         scores = [r.score for r in results]
         assert scores == sorted(scores, reverse=True)
+
+
+class TestListByType:
+    """Tests for list_by_type functionality."""
+
+    def test_list_all_functions(self, searcher):
+        """Test listing all functions."""
+        results = searcher.list_by_type("function")
+
+        assert len(results) > 0
+        assert all(r.type == "function" for r in results)
+
+    def test_list_all_classes(self, searcher):
+        """Test listing all classes."""
+        results = searcher.list_by_type("class")
+
+        assert len(results) > 0
+        assert all(r.type == "class" for r in results)
+        class_names = [r.name for r in results]
+        assert "UserHandler" in class_names
+
+    def test_list_all_methods(self, searcher):
+        """Test listing all methods."""
+        results = searcher.list_by_type("method")
+
+        assert len(results) > 0
+        assert all(r.type == "method" for r in results)
+
+    def test_list_with_file_pattern(self, searcher):
+        """Test listing symbols filtered by file pattern."""
+        results = searcher.list_by_type("function", file_pattern="helpers")
+
+        assert len(results) > 0
+        assert all("helpers" in r.file for r in results)
+
+    def test_list_with_limit(self, searcher):
+        """Test listing with result limit."""
+        results = searcher.list_by_type("function", limit=2)
+
+        assert len(results) <= 2
+
+    def test_list_nonexistent_type(self, searcher):
+        """Test listing a type that doesn't exist."""
+        results = searcher.list_by_type("nonexistent_type")
+
+        assert len(results) == 0
+
+    def test_list_results_sorted(self, searcher):
+        """Test that list results are sorted by file and name."""
+        results = searcher.list_by_type("function")
+
+        # Should be sorted by (file, name)
+        sorted_results = sorted(results, key=lambda x: (x.file, x.name))
+        assert results == sorted_results

@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 import re
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 
 class LineReader:

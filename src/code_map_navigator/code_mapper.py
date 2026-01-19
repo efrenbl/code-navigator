@@ -32,7 +32,7 @@ from dataclasses import dataclass, asdict
 import argparse
 import fnmatch
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 # Supported languages and their extensions
 LANGUAGE_EXTENSIONS = {

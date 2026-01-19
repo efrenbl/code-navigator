@@ -391,7 +391,7 @@ python -c "import sys; sys.setrecursionlimit(2000); from code_map_navigator impo
 If you can't resolve an issue:
 
 1. **Check existing issues:**
-   https://github.com/yourusername/claude-code-navigator/issues
+   https://github.com/efrenbl/claude-code-navigator/issues
 
 2. **Create a new issue** with:
    - Python version (`python --version`)

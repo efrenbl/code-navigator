@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "claude-code-navigator"
-version = "1.0.0"
+version = "1.0.1"
 description = "Token-efficient code navigation for large codebases - reduce token usage by 97%"
 readme = "README.md"
 license = {text = "MIT"}
@@ -59,11 +59,11 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/claude-code-navigator"
-Documentation = "https://github.com/yourusername/claude-code-navigator#readme"
-Repository = "https://github.com/yourusername/claude-code-navigator.git"
-Issues = "https://github.com/yourusername/claude-code-navigator/issues"
-Changelog = "https://github.com/yourusername/claude-code-navigator/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/efrenbl/claude-code-navigator"
+Documentation = "https://github.com/efrenbl/claude-code-navigator#readme"
+Repository = "https://github.com/efrenbl/claude-code-navigator.git"
+Issues = "https://github.com/efrenbl/claude-code-navigator/issues"
+Changelog = "https://github.com/efrenbl/claude-code-navigator/blob/main/CHANGELOG.md"
 
 [project.scripts]
 code-map = "code_map_navigator.code_mapper:main"

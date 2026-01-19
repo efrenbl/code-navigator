@@ -178,6 +178,50 @@ results = searcher.search_symbol('handler', file_pattern='api/')
 results = searcher.search_symbol('main', fuzzy=False)
 ```
 
+#### list_by_type()
+
+```python
+def list_by_type(
+    self,
+    symbol_type: str,
+    file_pattern: Optional[str] = None,
+    limit: int = 100
+) -> List[SearchResult]
+```
+
+List all symbols of a specific type without requiring a search query.
+
+**Parameters:**
+- `symbol_type` (str): Type to filter by ('function', 'class', 'method', etc.)
+- `file_pattern` (str, optional): Regex pattern to filter by file path
+- `limit` (int): Maximum results to return (default: 100)
+
+**Returns:**
+- List of SearchResult objects sorted by file path and name
+
+**Example:**
+```python
+# List all classes in the codebase
+classes = searcher.list_by_type('class')
+for c in classes:
+    print(f"{c.name} in {c.file}:{c.lines[0]}")
+
+# List all functions in a specific directory
+functions = searcher.list_by_type('function', file_pattern='api/')
+
+# List methods with a limit
+methods = searcher.list_by_type('method', limit=50)
+```
+
+**CLI Usage:**
+```bash
+# List all classes
+code-search --type class
+
+# List all functions in api/
+code-search --type function --file "api/"
+```
+
 #### search_file()
 
 ```python

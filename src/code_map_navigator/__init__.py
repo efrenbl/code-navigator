@@ -44,7 +44,7 @@ Example:
     >>> content = reader.read_symbol('src/auth.py', 45, 89)
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __author__ = "Efren"
 __license__ = "MIT"
 

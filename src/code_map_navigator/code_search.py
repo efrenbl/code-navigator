@@ -28,7 +28,7 @@ from dataclasses import dataclass
 import re
 from difflib import SequenceMatcher
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 
 @dataclass
