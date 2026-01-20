@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "claude-code-navigator"
-version = "1.2.0"
+version = "1.3.0"
 description = "Token-efficient code navigation for large codebases - reduce token usage by 97%"
 readme = "README.md"
 license = {text = "MIT"}
@@ -56,6 +56,11 @@ dev = [
     "build>=1.0.0",
     "twine>=4.0.0",
 ]
+ast = [
+    "tree-sitter>=0.23.0",
+    "tree-sitter-javascript>=0.23.0",
+    "tree-sitter-typescript>=0.23.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/efrenbl/claude-code-navigator"
@@ -65,6 +70,10 @@ Issues = "https://github.com/efrenbl/claude-code-navigator/issues"
 Changelog = "https://github.com/efrenbl/claude-code-navigator/blob/main/CHANGELOG.md"
 
 [project.scripts]
+# Unified CLI (recommended)
+codemap = "code_map_navigator.cli:main"
+
+# Legacy commands (maintained for backward compatibility)
 code-map = "code_map_navigator.code_mapper:main"
 code-search = "code_map_navigator.code_search:main"
 code-read = "code_map_navigator.line_reader:main"

@@ -26,11 +26,12 @@ import fnmatch
 import hashlib
 import json
 import os
+import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from .colors import get_colors
 
@@ -461,6 +462,147 @@ class GenericAnalyzer:
         return symbols
 
 
+class GitIntegration:
+    """Git integration utilities for the code mapper.
+
+    Provides methods to get git-tracked files, parse .gitignore,
+    and find changes since a specific commit.
+
+    Attributes:
+        root_path: Path to the git repository root.
+        available: Whether git is available and this is a git repo.
+
+    Example:
+        >>> git = GitIntegration('/path/to/repo')
+        >>> if git.available:
+        ...     tracked_files = git.get_tracked_files()
+        ...     print(f"Found {len(tracked_files)} tracked files")
+    """
+
+    def __init__(self, root_path: Path):
+        """Initialize git integration.
+
+        Args:
+            root_path: Path to the repository root.
+        """
+        self.root_path = root_path
+        self.available = self._check_git_available()
+
+    def _check_git_available(self) -> bool:
+        """Check if git is available and this is a git repository."""
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--git-dir"],
+                cwd=self.root_path,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            return result.returncode == 0
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            return False
+
+    def get_tracked_files(self) -> Set[str]:
+        """Get all files tracked by git.
+
+        Returns:
+            Set of relative file paths tracked by git.
+        """
+        if not self.available:
+            return set()
+
+        try:
+            result = subprocess.run(
+                ["git", "ls-files"],
+                cwd=self.root_path,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                return set(result.stdout.strip().split("\n")) if result.stdout.strip() else set()
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            pass
+        return set()
+
+    def get_gitignore_patterns(self) -> List[str]:
+        """Parse .gitignore and return patterns.
+
+        Returns:
+            List of gitignore patterns.
+        """
+        patterns = []
+        gitignore_path = self.root_path / ".gitignore"
+
+        if gitignore_path.exists():
+            try:
+                content = gitignore_path.read_text(encoding="utf-8")
+                for line in content.splitlines():
+                    line = line.strip()
+                    # Skip comments and empty lines
+                    if line and not line.startswith("#"):
+                        patterns.append(line)
+            except Exception:
+                pass
+
+        return patterns
+
+    def get_files_changed_since(self, commit: str) -> Set[str]:
+        """Get files that changed since a specific commit.
+
+        Args:
+            commit: Git commit reference (hash, branch, tag, HEAD~N, etc.)
+
+        Returns:
+            Set of relative file paths that have changed.
+        """
+        if not self.available:
+            return set()
+
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--name-only", commit, "HEAD"],
+                cwd=self.root_path,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                return set(result.stdout.strip().split("\n")) if result.stdout.strip() else set()
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            pass
+        return set()
+
+    def get_uncommitted_changes(self) -> Set[str]:
+        """Get files with uncommitted changes.
+
+        Returns:
+            Set of relative file paths with uncommitted changes.
+        """
+        if not self.available:
+            return set()
+
+        try:
+            # Get both staged and unstaged changes
+            result = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=self.root_path,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                files = set()
+                for line in result.stdout.strip().split("\n"):
+                    if line and len(line) > 3:
+                        # Format: "XY filename" where XY is status
+                        files.add(line[3:].strip())
+                return files
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            pass
+        return set()
+
+
 class CodeMapper:
     """Main class for mapping a codebase to create a searchable index.
 
@@ -486,18 +628,42 @@ class CodeMapper:
         ...     json.dump(code_map, f)
     """
 
-    def __init__(self, root_path: str, ignore_patterns: List[str] = None):
+    def __init__(
+        self,
+        root_path: str,
+        ignore_patterns: List[str] = None,
+        git_only: bool = False,
+        use_gitignore: bool = False,
+    ):
         """Initialize the code mapper.
 
         Args:
             root_path: Path to the root directory to scan.
             ignore_patterns: Additional patterns to ignore. Merged with defaults.
+            git_only: If True, only scan files tracked by git.
+            use_gitignore: If True, also ignore patterns from .gitignore.
         """
         self.root_path = Path(root_path).resolve()
-        self.ignore_patterns = ignore_patterns or DEFAULT_IGNORE_PATTERNS
+        self.ignore_patterns = list(ignore_patterns or DEFAULT_IGNORE_PATTERNS)
+        self.git_only = git_only
+        self.use_gitignore = use_gitignore
         self.symbols: List[Symbol] = []
         self.file_hashes: Dict[str, str] = {}
         self.stats = {"files_processed": 0, "symbols_found": 0, "errors": 0}
+        self._existing_map: Optional[Dict[str, Any]] = None
+
+        # Initialize git integration
+        self._git = GitIntegration(self.root_path)
+        self._git_tracked_files: Optional[Set[str]] = None
+
+        # Add gitignore patterns if requested
+        if self.use_gitignore and self._git.available:
+            gitignore_patterns = self._git.get_gitignore_patterns()
+            self.ignore_patterns.extend(gitignore_patterns)
+
+        # Cache git tracked files if git_only mode
+        if self.git_only and self._git.available:
+            self._git_tracked_files = self._git.get_tracked_files()
 
     def should_ignore(self, path: Path) -> bool:
         """Check if a path should be ignored during scanning.
@@ -506,7 +672,7 @@ class CodeMapper:
             path: Path to check.
 
         Returns:
-            True if the path matches any ignore pattern.
+            True if the path matches any ignore pattern or is not git-tracked.
         """
         path_str = str(path)
         name = path.name
@@ -516,7 +682,26 @@ class CodeMapper:
                 return True
             if pattern in path_str:
                 return True
+
         return False
+
+    def _is_git_tracked(self, file_path: Path) -> bool:
+        """Check if a file is tracked by git.
+
+        Args:
+            file_path: Absolute path to the file.
+
+        Returns:
+            True if the file is git-tracked (or git_only mode is disabled).
+        """
+        if not self.git_only or self._git_tracked_files is None:
+            return True
+
+        try:
+            rel_path = str(file_path.relative_to(self.root_path))
+            return rel_path in self._git_tracked_files
+        except ValueError:
+            return False
 
     def get_language(self, file_path: Path) -> Optional[str]:
         """Determine the programming language from file extension.
@@ -563,6 +748,16 @@ class CodeMapper:
             language = self.get_language(file_path)
             if language == "python":
                 analyzer = PythonAnalyzer(rel_path, content)
+            elif language == "javascript":
+                from .js_ts_analyzer import JavaScriptAnalyzer
+
+                is_jsx = file_path.suffix.lower() in (".jsx",)
+                analyzer = JavaScriptAnalyzer(rel_path, content, is_jsx=is_jsx)
+            elif language == "typescript":
+                from .js_ts_analyzer import TypeScriptAnalyzer
+
+                is_tsx = file_path.suffix.lower() in (".tsx",)
+                analyzer = TypeScriptAnalyzer(rel_path, content, is_tsx=is_tsx)
             elif language:
                 analyzer = GenericAnalyzer(rel_path, content, language)
             else:
@@ -587,7 +782,14 @@ class CodeMapper:
             >>> print(result.keys())
             dict_keys(['version', 'root', 'generated_at', 'stats', 'files', 'index'])
         """
-        print(f"Scanning codebase at: {self.root_path}", file=sys.stderr)
+        mode = "git-tracked files" if self.git_only else "codebase"
+        print(f"Scanning {mode} at: {self.root_path}", file=sys.stderr)
+
+        if self.git_only:
+            if not self._git.available:
+                print("Warning: git not available, scanning all files", file=sys.stderr)
+            elif self._git_tracked_files:
+                print(f"  Git tracked files: {len(self._git_tracked_files)}", file=sys.stderr)
 
         for root, dirs, files in os.walk(self.root_path):
             dirs[:] = [d for d in dirs if not self.should_ignore(Path(root) / d)]
@@ -595,6 +797,10 @@ class CodeMapper:
             for file in files:
                 file_path = Path(root) / file
                 if self.should_ignore(file_path):
+                    continue
+
+                # Skip if not git-tracked (when git_only mode is enabled)
+                if not self._is_git_tracked(file_path):
                     continue
 
                 language = self.get_language(file_path)
@@ -606,13 +812,158 @@ class CodeMapper:
         self.stats["symbols_found"] = len(self.symbols)
         return self.generate_map()
 
+    def get_current_file_hash(self, file_path: Path) -> Optional[str]:
+        """Get the hash of a file's current content without full analysis.
+
+        Args:
+            file_path: Path to the file.
+
+        Returns:
+            Hash string, or None if file cannot be read.
+        """
+        try:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+            return self.hash_file(content)
+        except Exception:
+            return None
+
+    def scan_incremental(self, existing_map_path: str) -> Dict[str, Any]:
+        """Incrementally update an existing code map.
+
+        Only re-analyzes files that have changed since the last scan.
+        This is much faster than a full scan for large codebases.
+
+        Args:
+            existing_map_path: Path to the existing .codemap.json file.
+
+        Returns:
+            Dict containing the updated code map.
+
+        Example:
+            >>> mapper = CodeMapper('/my/project')
+            >>> result = mapper.scan_incremental('.codemap.json')
+            >>> print(result['stats'])
+            {'files_processed': 5, 'files_unchanged': 137, 'files_added': 2, ...}
+        """
+        # Load existing map
+        try:
+            with open(existing_map_path, encoding="utf-8") as f:
+                self._existing_map = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            print(f"Cannot load existing map ({e}), performing full scan", file=sys.stderr)
+            return self.scan()
+
+        existing_files = self._existing_map.get("files", {})
+        print(f"Incremental scan at: {self.root_path}", file=sys.stderr)
+        print(f"Existing map has {len(existing_files)} files", file=sys.stderr)
+
+        # Initialize incremental stats
+        self.stats = {
+            "files_processed": 0,
+            "files_unchanged": 0,
+            "files_added": 0,
+            "files_modified": 0,
+            "files_deleted": 0,
+            "symbols_found": 0,
+            "errors": 0,
+        }
+
+        # Track which files we've seen in current scan
+        current_files: Dict[str, str] = {}  # rel_path -> hash
+
+        # First pass: collect all current files and their hashes
+        for root, dirs, files in os.walk(self.root_path):
+            dirs[:] = [d for d in dirs if not self.should_ignore(Path(root) / d)]
+
+            for file in files:
+                file_path = Path(root) / file
+                if self.should_ignore(file_path):
+                    continue
+
+                language = self.get_language(file_path)
+                if language:
+                    rel_path = str(file_path.relative_to(self.root_path))
+                    current_hash = self.get_current_file_hash(file_path)
+                    if current_hash:
+                        current_files[rel_path] = current_hash
+
+        # Categorize files
+        unchanged_files = []
+        modified_files = []
+        added_files = []
+
+        for rel_path, current_hash in current_files.items():
+            if rel_path in existing_files:
+                existing_hash = existing_files[rel_path].get("hash", "")
+                if current_hash == existing_hash:
+                    unchanged_files.append(rel_path)
+                else:
+                    modified_files.append(rel_path)
+            else:
+                added_files.append(rel_path)
+
+        # Files in existing map but not in current scan = deleted
+        deleted_files = [f for f in existing_files if f not in current_files]
+
+        print(f"  Unchanged: {len(unchanged_files)}", file=sys.stderr)
+        print(f"  Modified: {len(modified_files)}", file=sys.stderr)
+        print(f"  Added: {len(added_files)}", file=sys.stderr)
+        print(f"  Deleted: {len(deleted_files)}", file=sys.stderr)
+
+        # Preserve unchanged files' symbols
+        for rel_path in unchanged_files:
+            file_info = existing_files[rel_path]
+            self.file_hashes[rel_path] = file_info.get("hash", "")
+
+            # Convert stored symbols back to Symbol objects
+            for sym_data in file_info.get("symbols", []):
+                symbol = Symbol(
+                    name=sym_data["name"],
+                    type=sym_data["type"],
+                    file_path=rel_path,
+                    line_start=sym_data["lines"][0],
+                    line_end=sym_data["lines"][1],
+                    signature=sym_data.get("signature"),
+                    docstring=sym_data.get("docstring"),
+                    parent=sym_data.get("parent"),
+                    dependencies=sym_data.get("deps") or [],
+                    decorators=sym_data.get("decorators") or [],
+                )
+                self.symbols.append(symbol)
+
+        self.stats["files_unchanged"] = len(unchanged_files)
+
+        # Analyze modified and added files
+        files_to_analyze = modified_files + added_files
+        for rel_path in files_to_analyze:
+            file_path = self.root_path / rel_path
+            symbols = self.analyze_file(file_path)
+            self.symbols.extend(symbols)
+            self.stats["files_processed"] += 1
+
+        self.stats["files_added"] = len(added_files)
+        self.stats["files_modified"] = len(modified_files)
+        self.stats["files_deleted"] = len(deleted_files)
+        self.stats["symbols_found"] = len(self.symbols)
+
+        return self.generate_map()
+
     def generate_map(self) -> Dict[str, Any]:
         """Generate the code map structure from collected symbols.
 
         Returns:
             Dict with version, root, timestamp, stats, files map, and symbol index.
         """
+        # Start with all analyzed files (including those with no symbols)
         files_map = {}
+        for file_path, file_hash in self.file_hashes.items():
+            files_map[file_path] = {
+                "hash": file_hash,
+                "symbols": [],
+            }
+
+        # Add symbols to their respective files
         for symbol in self.symbols:
             if symbol.file_path not in files_map:
                 files_map[symbol.file_path] = {
@@ -656,6 +1007,102 @@ class CodeMapper:
         }
 
 
+def add_map_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add map command arguments to a parser.
+
+    Args:
+        parser: The argument parser to add arguments to.
+    """
+    parser.add_argument("path", help="Path to the codebase root directory")
+    parser.add_argument(
+        "-o", "--output", default=".codemap.json", help="Output file path (default: .codemap.json)"
+    )
+    parser.add_argument("-i", "--ignore", nargs="*", help="Additional patterns to ignore")
+    parser.add_argument(
+        "--incremental",
+        action="store_true",
+        help="Only update changed files (requires existing map)",
+    )
+    parser.add_argument(
+        "--git-only",
+        action="store_true",
+        help="Only scan files tracked by git",
+    )
+    parser.add_argument(
+        "--use-gitignore",
+        action="store_true",
+        help="Also ignore patterns from .gitignore",
+    )
+    parser.add_argument(
+        "--compact", action="store_true", help="Output compact JSON (default: pretty-printed)"
+    )
+    parser.add_argument("--no-color", action="store_true", help="Disable colored output")
+
+
+def run_map(args: argparse.Namespace) -> None:
+    """Execute the map command with parsed arguments.
+
+    Args:
+        args: Parsed command-line arguments.
+    """
+    ignore_patterns = DEFAULT_IGNORE_PATTERNS.copy()
+    if args.ignore:
+        ignore_patterns.extend(args.ignore)
+
+    git_only = getattr(args, "git_only", False)
+    use_gitignore = getattr(args, "use_gitignore", False)
+
+    mapper = CodeMapper(
+        args.path,
+        ignore_patterns,
+        git_only=git_only,
+        use_gitignore=use_gitignore,
+    )
+
+    output_path = args.output
+    if not os.path.isabs(output_path):
+        output_path = os.path.join(args.path, output_path)
+
+    # Use incremental scan if requested and existing map exists
+    incremental = getattr(args, "incremental", False)
+    if incremental and os.path.exists(output_path):
+        code_map = mapper.scan_incremental(output_path)
+    else:
+        if incremental:
+            print(f"No existing map at {output_path}, performing full scan", file=sys.stderr)
+        code_map = mapper.scan()
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        if args.compact:
+            json.dump(code_map, f, separators=(",", ":"))
+        else:
+            json.dump(code_map, f, indent=2)
+
+    c = get_colors(no_color=args.no_color)
+    stats = code_map["stats"]
+
+    # Display appropriate message based on scan type
+    if "files_unchanged" in stats:
+        # Incremental scan
+        print(f"\n{c.success('✓')} Code map updated: {c.cyan(output_path)}", file=sys.stderr)
+        print(f"  Unchanged: {c.dim(str(stats['files_unchanged']))}", file=sys.stderr)
+        print(f"  Modified: {c.yellow(str(stats['files_modified']))}", file=sys.stderr)
+        print(f"  Added: {c.green(str(stats['files_added']))}", file=sys.stderr)
+        print(f"  Deleted: {c.magenta(str(stats['files_deleted']))}", file=sys.stderr)
+        print(f"  Total symbols: {c.green(str(stats['symbols_found']))}", file=sys.stderr)
+    else:
+        # Full scan
+        print(f"\n{c.success('✓')} Code map generated: {c.cyan(output_path)}", file=sys.stderr)
+        print(f"  Files processed: {c.green(str(stats['files_processed']))}", file=sys.stderr)
+        print(f"  Symbols found: {c.green(str(stats['symbols_found']))}", file=sys.stderr)
+
+    summary = {"output": output_path, "stats": stats}
+    if args.compact:
+        print(json.dumps(summary, separators=(",", ":")))
+    else:
+        print(json.dumps(summary, indent=2))
+
+
 def main():
     """Command-line interface for the code mapper.
 
@@ -669,49 +1116,11 @@ def main():
         description="Generate a code map for token-efficient navigation",
         epilog="Example: code-map /my/project -o .codemap.json",
     )
-    parser.add_argument("path", help="Path to the codebase root directory")
-    parser.add_argument(
-        "-o", "--output", default=".codemap.json", help="Output file path (default: .codemap.json)"
-    )
-    parser.add_argument("-i", "--ignore", nargs="*", help="Additional patterns to ignore")
-    parser.add_argument(
-        "--compact", action="store_true", help="Output compact JSON (default: pretty-printed)"
-    )
-    parser.add_argument("--no-color", action="store_true", help="Disable colored output")
+    add_map_arguments(parser)
     parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__}")
 
     args = parser.parse_args()
-
-    ignore_patterns = DEFAULT_IGNORE_PATTERNS.copy()
-    if args.ignore:
-        ignore_patterns.extend(args.ignore)
-
-    mapper = CodeMapper(args.path, ignore_patterns)
-    code_map = mapper.scan()
-
-    output_path = args.output
-    if not os.path.isabs(output_path):
-        output_path = os.path.join(args.path, output_path)
-
-    with open(output_path, "w", encoding="utf-8") as f:
-        if args.compact:
-            json.dump(code_map, f, separators=(",", ":"))
-        else:
-            json.dump(code_map, f, indent=2)
-
-    c = get_colors(no_color=args.no_color)
-    print(f"\n{c.success('✓')} Code map generated: {c.cyan(output_path)}", file=sys.stderr)
-    print(
-        f"  Files processed: {c.green(str(code_map['stats']['files_processed']))}",
-        file=sys.stderr,
-    )
-    print(f"  Symbols found: {c.green(str(code_map['stats']['symbols_found']))}", file=sys.stderr)
-
-    summary = {"output": output_path, "stats": code_map["stats"]}
-    if args.compact:
-        print(json.dumps(summary, separators=(",", ":")))
-    else:
-        print(json.dumps(summary, indent=2))
+    run_map(args)
 
 
 if __name__ == "__main__":

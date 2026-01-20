@@ -7,14 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [1.3.0] - 2026-01-20
+
 ### Added
-- Nothing yet
+- **AST support for JavaScript/TypeScript** via tree-sitter (optional dependency)
+  - Install with `pip install claude-code-navigator[ast]`
+  - Detects functions, arrow functions, classes, methods, interfaces, types, enums
+  - Automatic fallback to regex when tree-sitter not installed
+  - New `js_ts_analyzer.py` module with `JavaScriptAnalyzer` and `TypeScriptAnalyzer`
+
+- **Git integration**
+  - `--git-only` flag: Only scan git-tracked files
+  - `--use-gitignore` flag: Respect .gitignore patterns
+  - `--since-commit` flag: Show symbols in files changed since a commit
+  - New `GitIntegration` class with helper methods
+
+- **Stale detection**
+  - `--check-stale` flag: Check if code map is outdated
+  - `--warn-stale` flag: Warn before showing results if files changed
+  - `check_stale_files()` method in `CodeSearcher`
+
+- **Watch mode** (`codemap watch`)
+  - Auto-update code map when files change
+  - Polling-based (no external dependencies)
+  - Configurable debounce
+  - New `watcher.py` module with `CodeMapWatcher`
+
+- **Export formats** (`codemap export`)
+  - Markdown: Documentation with statistics and symbol index
+  - HTML: Interactive page with search and dark theme
+  - GraphViz: DOT format dependency graph
+  - New `exporters.py` module with `MarkdownExporter`, `HTMLExporter`, `GraphVizExporter`
+
+- **Shell completions** (`codemap completion`)
+  - Bash and Zsh completion scripts
+  - Completes commands, options, and symbol names
+  - New `completions.py` module
+
+- **Unified CLI**: New `codemap` command with subcommands (`map`, `search`, `read`, `stats`, `watch`, `export`, `completion`)
+- **Incremental map updates**: `--incremental` flag for `codemap map`
+- New `cli.py` module providing unified entry point
+- Comprehensive test suite (146 tests)
 
 ### Changed
-- Nothing yet
+- Refactored modules with reusable `add_*_arguments()` and `run_*()` functions
+- Maps now include all analyzed files for accurate incremental tracking
+- Updated skill file with new CLI documentation
 
-### Fixed
-- Nothing yet
+### Backward Compatibility
+- Legacy commands (`code-map`, `code-search`, `code-read`) still work
+- Existing `.codemap.json` files are fully compatible
+- JS/TS analysis falls back to regex if tree-sitter not installed
 
 ## [1.2.0] - 2026-01-19
 
@@ -109,6 +154,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 1.3.0 | 2026-01-20 | AST for JS/TS, git integration, watch, export, completions |
 | 1.2.0 | 2026-01-19 | Terminal colors, `--no-color` flag, table format |
 | 1.1.0 | 2026-01-19 | Pretty output by default, `--compact` flag |
 | 1.0.1 | 2026-01-19 | Added `list_by_type()`, CLI improvements |
@@ -130,7 +176,8 @@ None at this time.
 
 ---
 
-[Unreleased]: https://github.com/efrenbl/claude-code-navigator/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/efrenbl/claude-code-navigator/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/efrenbl/claude-code-navigator/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/efrenbl/claude-code-navigator/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/efrenbl/claude-code-navigator/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/efrenbl/claude-code-navigator/compare/v1.0.0...v1.0.1

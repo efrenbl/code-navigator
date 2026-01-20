@@ -379,3 +379,76 @@ class TestListByType:
         # Should be sorted by (file, name)
         sorted_results = sorted(results, key=lambda x: (x.file, x.name))
         assert results == sorted_results
+
+
+class TestCheckStaleFiles:
+    """Tests for the check_stale_files method."""
+
+    def test_check_stale_files_invalid_root(self, searcher):
+        """Test stale check with invalid root path."""
+        result = searcher.check_stale_files("/nonexistent/path")
+
+        assert result["is_stale"] is False
+        assert "error" in result
+
+    def test_check_stale_files_returns_dict(self, searcher, sample_codemap, tmp_path):
+        """Test that check_stale_files returns proper structure."""
+        # Create temp files matching the codemap
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "api").mkdir()
+        (tmp_path / "src" / "main.py").write_text("# test")
+        (tmp_path / "src" / "api" / "handlers.py").write_text("# test")
+        (tmp_path / "src" / "helpers.py").write_text("# test")
+
+        # Update codemap root to temp path
+        sample_codemap["root"] = str(tmp_path)
+        map_file = tmp_path / ".codemap.json"
+        map_file.write_text(json.dumps(sample_codemap))
+
+        searcher2 = CodeSearcher(str(map_file))
+        result = searcher2.check_stale_files()
+
+        assert "is_stale" in result
+        assert "stale" in result
+        assert "missing" in result
+        assert "total_checked" in result
+        assert isinstance(result["stale"], list)
+        assert isinstance(result["missing"], list)
+
+    def test_check_stale_files_detects_changes(self, sample_codemap, tmp_path):
+        """Test that stale check detects modified files."""
+        # Create temp files with content that won't match stored hash
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "api").mkdir()
+        (tmp_path / "src" / "main.py").write_text("modified content")
+        (tmp_path / "src" / "api" / "handlers.py").write_text("modified content")
+        (tmp_path / "src" / "helpers.py").write_text("modified content")
+
+        # Update codemap root to temp path
+        sample_codemap["root"] = str(tmp_path)
+        map_file = tmp_path / ".codemap.json"
+        map_file.write_text(json.dumps(sample_codemap))
+
+        searcher = CodeSearcher(str(map_file))
+        result = searcher.check_stale_files()
+
+        # All files should be stale since content doesn't match hash
+        assert result["is_stale"] is True
+        assert len(result["stale"]) > 0
+
+    def test_check_stale_files_detects_missing(self, sample_codemap, tmp_path):
+        """Test that stale check detects deleted files."""
+        # Only create some files
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "main.py").write_text("# test")
+        # Don't create api/handlers.py or helpers.py
+
+        sample_codemap["root"] = str(tmp_path)
+        map_file = tmp_path / ".codemap.json"
+        map_file.write_text(json.dumps(sample_codemap))
+
+        searcher = CodeSearcher(str(map_file))
+        result = searcher.check_stale_files()
+
+        assert result["is_stale"] is True
+        assert len(result["missing"]) > 0

@@ -1,7 +1,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.8+-blue.svg" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License">
-  <img src="https://img.shields.io/badge/version-1.2.0-orange.svg" alt="Version 1.2.0">
+  <img src="https://img.shields.io/badge/version-1.3.0-orange.svg" alt="Version 1.3.0">
   <img src="https://github.com/efrenbl/claude-code-navigator/actions/workflows/ci.yml/badge.svg" alt="CI Status">
 </p>
 
@@ -89,7 +89,10 @@ pip install -e .
 cd /path/to/your/project
 
 # Generate the index (one-time, ~10 seconds for most projects)
-code-map /path/to/your/project
+codemap map .
+
+# Update only changed files (much faster for large codebases)
+codemap map . --incremental
 ```
 
 This creates a `.codemap.json` file (~1-5% of your codebase size).
@@ -98,10 +101,13 @@ This creates a `.codemap.json` file (~1-5% of your codebase size).
 
 ```bash
 # Find a function
-code-search "process_payment"
+codemap search "process_payment"
 
 # Read only the lines you need
-code-read src/payments.py 45-89
+codemap read src/payments.py 45-89
+
+# Get codebase statistics
+codemap stats
 ```
 
 **That's it!** You're now saving 90%+ tokens on every code exploration.
@@ -169,20 +175,35 @@ claude "/code-map-navigator"
 
 ## 📖 Detailed Usage
 
+### Unified CLI (`codemap`)
+
+The recommended way to use this tool is via the unified `codemap` command:
+
+```bash
+codemap map .                           # Generate code map
+codemap map . --incremental             # Update only changed files
+codemap search "UserService"            # Search for symbols
+codemap read src/api.py 45-60           # Read specific lines
+codemap stats                           # Show codebase statistics
+```
+
 ### 1. Generating the Code Map
 
 ```bash
 # Basic usage
-code-map /your/project
+codemap map /your/project
 
 # With custom output location
-code-map /your/project -o custom-map.json
+codemap map /your/project -o custom-map.json
+
+# Incremental update (only re-analyze changed files)
+codemap map /your/project --incremental
 
 # Exclude patterns
-code-map /your/project -i "test_*.py" "migrations/"
+codemap map /your/project -i "test_*.py" "migrations/"
 
-# Pretty-print JSON (for debugging)
-code-map /your/project --pretty
+# Compact JSON output
+codemap map /your/project --compact
 ```
 
 **Output:** A `.codemap.json` containing:
@@ -195,23 +216,23 @@ code-map /your/project --pretty
 
 ```bash
 # Search by symbol name (fuzzy matching enabled)
-code-search "UserService"
+codemap search "UserService"
 
 # Filter by type
-code-search "User" --type class
-code-search "validate" --type function
+codemap search "User" --type class
+codemap search "validate" --type function
 
 # Search within specific files
-code-search "handler" --file "api/"
+codemap search "handler" --file "api/"
 
 # Show file structure (all symbols in a file)
-code-search --structure src/models/user.py
+codemap search --structure src/models/user.py
 
 # Find dependencies
-code-search --deps "calculate_total"
+codemap search --deps "calculate_total"
 
 # Codebase statistics
-code-search --stats
+codemap stats
 ```
 
 **Example output:**
@@ -231,22 +252,22 @@ code-search --stats
 
 ```bash
 # Read a single range
-code-read src/api.py 45-60
+codemap read src/api.py 45-60
 
 # Read multiple ranges (intelligently merged)
-code-read src/api.py "10-20,45-60,100-110"
+codemap read src/api.py "10-20,45-60,100-110"
 
 # Add context lines before/after
-code-read src/api.py 45-60 -c 3
+codemap read src/api.py 45-60 -c 3
 
 # Smart symbol reading (auto-truncates large functions)
-code-read src/api.py 45-150 --symbol --max-lines 50
+codemap read src/api.py 45-150 --symbol --max-lines 50
 
 # Search for pattern in file
-code-read src/api.py --search "def process"
+codemap read src/api.py --search "def process"
 
 # Human-readable output
-code-read src/api.py 45-60 -o code
+codemap read src/api.py 45-60 -o code
 ```
 
 **Example output (JSON):**
@@ -272,18 +293,100 @@ code-read src/api.py 45-60 -o code
 
 ---
 
+### 4. Git Integration
+
+```bash
+# Only scan git-tracked files (ignores untracked files)
+codemap map . --git-only
+
+# Respect .gitignore patterns
+codemap map . --use-gitignore
+
+# Show symbols in files changed since a commit
+codemap search --since-commit HEAD~5
+codemap search --since-commit main
+```
+
+### 5. Stale Detection
+
+```bash
+# Check if code map is stale (files changed since generation)
+codemap search --check-stale
+
+# Warn about stale files before showing search results
+codemap search "payment" --warn-stale
+```
+
+### 6. Watch Mode
+
+Automatically update the code map when files change:
+
+```bash
+# Watch for changes with default settings
+codemap watch /path/to/project
+
+# With custom options
+codemap watch . -o .codemap.json --debounce 2.0 --git-only
+```
+
+### 7. Export Formats
+
+Export your code map to different formats for documentation:
+
+```bash
+# Export to Markdown
+codemap export -f markdown -o docs/codebase.md
+
+# Export to interactive HTML
+codemap export -f html -o docs/codebase.html
+
+# Export to GraphViz (dependency graph)
+codemap export -f graphviz -o docs/deps.dot
+dot -Tpng docs/deps.dot -o docs/deps.png
+```
+
+### 8. Shell Completion
+
+Generate autocompletion for your shell:
+
+```bash
+# Bash
+codemap completion bash > ~/.bash_completion.d/codemap
+source ~/.bash_completion.d/codemap
+
+# Zsh
+codemap completion zsh > ~/.zfunc/_codemap
+
+# Or source directly
+eval "$(codemap completion bash)"
+```
+
+---
+
+### Legacy Commands
+
+For backward compatibility, the original commands are still available:
+
+```bash
+code-map /your/project         # Same as: codemap map /your/project
+code-search "UserService"      # Same as: codemap search "UserService"
+code-read src/api.py 45-60     # Same as: codemap read src/api.py 45-60
+```
+
+---
+
 ## 🔄 Typical Workflow
 
 **User:** "Fix the bug in the payment processing function"
 
 ```bash
 # Step 1: Search for the function
-$ code-search "payment" --type function
+$ codemap search "payment" --type function
 
 [{"name": "process_payment", "file": "src/billing/payments.py", "lines": [45, 89]}]
 
 # Step 2: Read only that function
-$ code-read src/billing/payments.py 45-89 --symbol -o code
+$ codemap read src/billing/payments.py 45-89 --symbol -o code
 
 # src/billing/payments.py
 > 45 | def process_payment(user_id: int, amount: Decimal) -> PaymentResult:
@@ -380,8 +483,8 @@ flowchart TB
 | Language | Analysis Type | Quality |
 |----------|---------------|---------|
 | Python | Full AST | ⭐⭐⭐⭐⭐ |
-| JavaScript | Regex-based | ⭐⭐⭐⭐ |
-| TypeScript | Regex-based | ⭐⭐⭐⭐ |
+| JavaScript | AST (tree-sitter)* | ⭐⭐⭐⭐⭐ |
+| TypeScript | AST (tree-sitter)* | ⭐⭐⭐⭐⭐ |
 | Java | Regex-based | ⭐⭐⭐ |
 | Go | Regex-based | ⭐⭐⭐ |
 | Rust | Regex-based | ⭐⭐⭐ |
@@ -389,7 +492,9 @@ flowchart TB
 | Ruby | Regex-based | ⭐⭐⭐ |
 | PHP | Regex-based | ⭐⭐⭐ |
 
-Python receives full AST analysis with accurate line ranges. Other languages use regex patterns that work well for most codebases.
+*JavaScript/TypeScript use tree-sitter AST when installed (`pip install claude-code-navigator[ast]`), with automatic fallback to regex.
+
+Python receives full AST analysis with accurate line ranges. JS/TS with tree-sitter detect functions, arrow functions, classes, methods, interfaces, types, and enums.
 
 ---
 
@@ -398,7 +503,11 @@ Python receives full AST analysis with accurate line ranges. Other languages use
 ### Option 1: pip (Recommended)
 
 ```bash
+# Basic install (Python AST, regex for other languages)
 pip install claude-code-navigator
+
+# With tree-sitter AST support for JavaScript/TypeScript
+pip install claude-code-navigator[ast]
 ```
 
 ### Option 2: pipx (Isolated environment)
@@ -470,10 +579,9 @@ The mapper automatically ignores common patterns like `node_modules`, `__pycache
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ### Quick contribution ideas:
-- Add support for more languages (Ruby, PHP, Kotlin)
+- Add AST support for more languages (Go, Rust, Java)
 - Improve regex patterns for existing languages
-- Add incremental map updates
-- Create IDE integrations
+- Create IDE integrations (VS Code, JetBrains)
 
 ---
 

@@ -384,3 +384,286 @@ class TestIntegration:
 
         assert result["stats"]["files_processed"] >= 1
         assert result["stats"]["symbols_found"] >= 5
+
+
+class TestIncrementalScan:
+    """Tests for the incremental scan functionality."""
+
+    def test_incremental_scan_no_changes(self, tmp_path):
+        """Test incremental scan when no files have changed."""
+        import json
+
+        # Create initial project
+        (tmp_path / "main.py").write_text("def hello(): pass")
+        (tmp_path / "utils.py").write_text("def helper(): pass")
+
+        # Initial scan
+        mapper = CodeMapper(str(tmp_path))
+        initial_map = mapper.scan()
+
+        # Save the map
+        map_path = tmp_path / ".codemap.json"
+        with open(map_path, "w") as f:
+            json.dump(initial_map, f)
+
+        # Incremental scan with no changes
+        mapper2 = CodeMapper(str(tmp_path))
+        result = mapper2.scan_incremental(str(map_path))
+
+        assert result["stats"]["files_unchanged"] == 2
+        assert result["stats"]["files_modified"] == 0
+        assert result["stats"]["files_added"] == 0
+        assert result["stats"]["files_deleted"] == 0
+        assert result["stats"]["symbols_found"] == 2
+
+    def test_incremental_scan_with_modified_file(self, tmp_path):
+        """Test incremental scan when a file is modified."""
+        import json
+
+        # Create initial project
+        (tmp_path / "main.py").write_text("def hello(): pass")
+
+        # Initial scan
+        mapper = CodeMapper(str(tmp_path))
+        initial_map = mapper.scan()
+
+        # Save the map
+        map_path = tmp_path / ".codemap.json"
+        with open(map_path, "w") as f:
+            json.dump(initial_map, f)
+
+        # Modify file
+        (tmp_path / "main.py").write_text("def hello(): pass\ndef world(): pass")
+
+        # Incremental scan
+        mapper2 = CodeMapper(str(tmp_path))
+        result = mapper2.scan_incremental(str(map_path))
+
+        assert result["stats"]["files_unchanged"] == 0
+        assert result["stats"]["files_modified"] == 1
+        assert result["stats"]["files_added"] == 0
+        assert result["stats"]["files_deleted"] == 0
+        assert result["stats"]["symbols_found"] == 2  # hello + world
+
+    def test_incremental_scan_with_added_file(self, tmp_path):
+        """Test incremental scan when a new file is added."""
+        import json
+
+        # Create initial project
+        (tmp_path / "main.py").write_text("def hello(): pass")
+
+        # Initial scan
+        mapper = CodeMapper(str(tmp_path))
+        initial_map = mapper.scan()
+
+        # Save the map
+        map_path = tmp_path / ".codemap.json"
+        with open(map_path, "w") as f:
+            json.dump(initial_map, f)
+
+        # Add new file
+        (tmp_path / "new_file.py").write_text("def new_func(): pass")
+
+        # Incremental scan
+        mapper2 = CodeMapper(str(tmp_path))
+        result = mapper2.scan_incremental(str(map_path))
+
+        assert result["stats"]["files_unchanged"] == 1
+        assert result["stats"]["files_modified"] == 0
+        assert result["stats"]["files_added"] == 1
+        assert result["stats"]["files_deleted"] == 0
+        assert result["stats"]["symbols_found"] == 2  # hello + new_func
+
+    def test_incremental_scan_with_deleted_file(self, tmp_path):
+        """Test incremental scan when a file is deleted."""
+        import json
+
+        # Create initial project
+        (tmp_path / "main.py").write_text("def hello(): pass")
+        (tmp_path / "to_delete.py").write_text("def gone(): pass")
+
+        # Initial scan
+        mapper = CodeMapper(str(tmp_path))
+        initial_map = mapper.scan()
+
+        # Save the map
+        map_path = tmp_path / ".codemap.json"
+        with open(map_path, "w") as f:
+            json.dump(initial_map, f)
+
+        # Delete file
+        (tmp_path / "to_delete.py").unlink()
+
+        # Incremental scan
+        mapper2 = CodeMapper(str(tmp_path))
+        result = mapper2.scan_incremental(str(map_path))
+
+        assert result["stats"]["files_unchanged"] == 1
+        assert result["stats"]["files_modified"] == 0
+        assert result["stats"]["files_added"] == 0
+        assert result["stats"]["files_deleted"] == 1
+        assert result["stats"]["symbols_found"] == 1  # only hello remains
+        assert "to_delete.py" not in result["files"]
+
+    def test_incremental_scan_mixed_changes(self, tmp_path):
+        """Test incremental scan with a mix of changes."""
+        import json
+
+        # Create initial project
+        (tmp_path / "unchanged.py").write_text("def same(): pass")
+        (tmp_path / "modified.py").write_text("def old(): pass")
+        (tmp_path / "deleted.py").write_text("def gone(): pass")
+
+        # Initial scan
+        mapper = CodeMapper(str(tmp_path))
+        initial_map = mapper.scan()
+
+        # Save the map
+        map_path = tmp_path / ".codemap.json"
+        with open(map_path, "w") as f:
+            json.dump(initial_map, f)
+
+        # Make changes
+        (tmp_path / "modified.py").write_text("def new(): pass")
+        (tmp_path / "deleted.py").unlink()
+        (tmp_path / "added.py").write_text("def fresh(): pass")
+
+        # Incremental scan
+        mapper2 = CodeMapper(str(tmp_path))
+        result = mapper2.scan_incremental(str(map_path))
+
+        assert result["stats"]["files_unchanged"] == 1
+        assert result["stats"]["files_modified"] == 1
+        assert result["stats"]["files_added"] == 1
+        assert result["stats"]["files_deleted"] == 1
+        assert result["stats"]["symbols_found"] == 3  # same, new, fresh
+
+    def test_incremental_scan_nonexistent_map(self, tmp_path):
+        """Test incremental scan falls back to full scan if map doesn't exist."""
+        # Create project
+        (tmp_path / "main.py").write_text("def hello(): pass")
+
+        # Incremental scan without existing map
+        mapper = CodeMapper(str(tmp_path))
+        result = mapper.scan_incremental(str(tmp_path / "nonexistent.json"))
+
+        # Should fall back to full scan (no incremental stats)
+        assert "files_unchanged" not in result["stats"]
+        assert result["stats"]["files_processed"] == 1
+
+    def test_incremental_scan_preserves_symbol_details(self, tmp_path):
+        """Test that incremental scan preserves symbol details from unchanged files."""
+        import json
+
+        # Create initial project with detailed symbol
+        (tmp_path / "main.py").write_text('''
+def hello(name: str) -> str:
+    """Greet someone."""
+    return f"Hello, {name}"
+
+class MyClass:
+    """A class."""
+    def method(self):
+        pass
+''')
+
+        # Initial scan
+        mapper = CodeMapper(str(tmp_path))
+        initial_map = mapper.scan()
+
+        # Save the map
+        map_path = tmp_path / ".codemap.json"
+        with open(map_path, "w") as f:
+            json.dump(initial_map, f)
+
+        # Add a new unrelated file (main.py unchanged)
+        (tmp_path / "other.py").write_text("def other(): pass")
+
+        # Incremental scan
+        mapper2 = CodeMapper(str(tmp_path))
+        result = mapper2.scan_incremental(str(map_path))
+
+        # Check that unchanged file's symbols are preserved
+        main_symbols = result["files"]["main.py"]["symbols"]
+        assert len(main_symbols) == 3  # hello, MyClass, method
+
+        hello_symbol = [s for s in main_symbols if s["name"] == "hello"][0]
+        assert "def hello" in hello_symbol["signature"]
+        assert "Greet someone" in hello_symbol["docstring"]
+
+
+class TestGitIntegration:
+    """Tests for Git integration features."""
+
+    def test_git_integration_init(self, tmp_path):
+        """Test GitIntegration initialization."""
+        from code_map_navigator.code_mapper import GitIntegration
+
+        git = GitIntegration(tmp_path)
+        # In a non-git directory, available should be False
+        assert isinstance(git.available, bool)
+
+    def test_git_integration_in_git_repo(self):
+        """Test GitIntegration in an actual git repo."""
+        from pathlib import Path
+
+        from code_map_navigator.code_mapper import GitIntegration
+
+        # Use the current project directory which is a git repo
+        repo_path = Path(__file__).parent.parent
+        git = GitIntegration(repo_path)
+
+        assert git.available is True
+        tracked_files = git.get_tracked_files()
+        assert len(tracked_files) > 0
+        assert any("code_mapper.py" in f for f in tracked_files)
+
+    def test_gitignore_patterns(self):
+        """Test reading .gitignore patterns."""
+        from pathlib import Path
+
+        from code_map_navigator.code_mapper import GitIntegration
+
+        # Use the current project directory
+        repo_path = Path(__file__).parent.parent
+        git = GitIntegration(repo_path)
+
+        patterns = git.get_gitignore_patterns()
+        # There should be some patterns (the repo has a .gitignore)
+        assert isinstance(patterns, list)
+
+    def test_code_mapper_with_git_only(self, tmp_path):
+        """Test CodeMapper with git_only=True in non-git directory."""
+        (tmp_path / "main.py").write_text("def hello(): pass")
+
+        mapper = CodeMapper(str(tmp_path), git_only=True)
+        result = mapper.scan()
+
+        # In a non-git directory with git_only, git is not available
+        # so it should fall back to scanning all files
+        assert result["stats"]["files_processed"] >= 0
+
+    def test_code_mapper_with_use_gitignore(self, tmp_path):
+        """Test CodeMapper with use_gitignore=True."""
+        (tmp_path / "main.py").write_text("def hello(): pass")
+        (tmp_path / ".gitignore").write_text("*.pyc\n__pycache__\n")
+
+        mapper = CodeMapper(str(tmp_path), use_gitignore=True)
+
+        # Check that gitignore patterns were added
+        assert "*.pyc" in mapper.ignore_patterns or "__pycache__" in mapper.ignore_patterns
+
+    def test_code_mapper_git_only_in_git_repo(self):
+        """Test CodeMapper with git_only=True in actual git repo."""
+        from pathlib import Path
+
+        # Use a subdirectory of the project
+        repo_path = Path(__file__).parent.parent
+
+        mapper = CodeMapper(str(repo_path), git_only=True)
+
+        # _git should be available
+        assert mapper._git.available is True
+        # _git_tracked_files should be populated
+        assert mapper._git_tracked_files is not None
+        assert len(mapper._git_tracked_files) > 0

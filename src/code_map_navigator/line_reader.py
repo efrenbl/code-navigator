@@ -452,22 +452,12 @@ def format_output(
     return json.dumps(result)
 
 
-def main():
-    """Command-line interface for the line reader.
+def add_read_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add read command arguments to a parser.
 
-    Usage:
-        code-read FILE LINES [-c CONTEXT] [--symbol] [-o FORMAT]
-        code-read FILE --search PATTERN
-
-    Examples:
-        $ code-read src/api.py 45-60 -c 2
-        $ code-read src/api.py "10,20-30,50" --symbol
-        $ code-read src/api.py --search "def process" -o code
+    Args:
+        parser: The argument parser to add arguments to.
     """
-    parser = argparse.ArgumentParser(
-        description="Read specific lines from files for token-efficient code viewing",
-        epilog="Example: code-read src/api.py 45-60 -c 2 -o code",
-    )
     parser.add_argument("file", help="Path to the file to read")
     parser.add_argument("lines", nargs="?", help='Line range (e.g., "10", "10-20", "10,20,30-40")')
     parser.add_argument("-r", "--root", help="Root directory for relative paths")
@@ -492,10 +482,14 @@ def main():
         "--compact", action="store_true", help="Output compact JSON (default: pretty-printed)"
     )
     parser.add_argument("--no-color", action="store_true", help="Disable colored output")
-    parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__}")
 
-    args = parser.parse_args()
 
+def run_read(args: argparse.Namespace) -> None:
+    """Execute the read command with parsed arguments.
+
+    Args:
+        args: Parsed command-line arguments.
+    """
     reader = LineReader(args.root)
 
     if args.search:
@@ -539,6 +533,29 @@ def main():
             result = {"error": f"File not found: {args.file}"}
 
     print(format_output(result, args.output, compact=args.compact, no_color=args.no_color))
+
+
+def main():
+    """Command-line interface for the line reader.
+
+    Usage:
+        code-read FILE LINES [-c CONTEXT] [--symbol] [-o FORMAT]
+        code-read FILE --search PATTERN
+
+    Examples:
+        $ code-read src/api.py 45-60 -c 2
+        $ code-read src/api.py "10,20-30,50" --symbol
+        $ code-read src/api.py --search "def process" -o code
+    """
+    parser = argparse.ArgumentParser(
+        description="Read specific lines from files for token-efficient code viewing",
+        epilog="Example: code-read src/api.py 45-60 -c 2 -o code",
+    )
+    add_read_arguments(parser)
+    parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__}")
+
+    args = parser.parse_args()
+    run_read(args)
 
 
 if __name__ == "__main__":

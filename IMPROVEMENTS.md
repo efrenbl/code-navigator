@@ -6,6 +6,58 @@ This document tracks potential improvements and enhancements for the project.
 
 ## Completed
 
+### Incremental map updates
+**Status:** Completed in v1.2.0
+
+Added `--incremental` flag to update only changed files instead of regenerating the entire map:
+
+```bash
+# Initial full scan
+codemap map . -o .codemap.json
+
+# Subsequent incremental updates (much faster)
+codemap map . -o .codemap.json --incremental
+```
+
+Output shows what changed:
+```
+Incremental scan at: /path/to/project
+Existing map has 142 files
+  Unchanged: 138
+  Modified: 2
+  Added: 1
+  Deleted: 1
+```
+
+Features:
+- Compares file hashes to detect changes
+- Only re-analyzes modified and new files
+- Preserves symbol data from unchanged files
+- Falls back to full scan if no existing map
+
+### Short command aliases (`codemap` unified CLI)
+**Status:** Completed in v1.2.0
+
+Added unified `codemap` command with subcommands:
+
+```bash
+# Before (still works for backward compatibility)
+code-map /path/to/project -o .codemap.json
+code-search "UserService" --type class
+code-read src/api.py 45-60
+
+# After (new unified CLI)
+codemap map /path/to/project -o .codemap.json
+codemap search "UserService" --type class
+codemap read src/api.py 45-60
+codemap stats  # shortcut for search --stats
+```
+
+Implementation:
+- New `cli.py` with argparse subparsers
+- Refactored modules with `add_*_arguments()` and `run_*()` functions
+- Legacy commands maintained for backward compatibility
+
 ### Terminal colors
 **Status:** Completed in v1.2.0
 
@@ -60,101 +112,177 @@ code-search --type class
 code-search --type function --file "src/api/"
 ```
 
----
+### AST support for JavaScript/TypeScript
+**Status:** Completed in v1.3.0
 
-## Planned Improvements
-
-### High Priority
-
-#### 1. Incremental map updates
-**Effort:** High | **Impact:** High
-
-Instead of regenerating the entire map, update only modified files:
+Added tree-sitter based AST parsing for JavaScript and TypeScript files as an optional dependency:
 
 ```bash
-code-map . --incremental
+# Install with AST support
+pip install claude-code-navigator[ast]
+
+# Without AST (regex fallback, zero dependencies)
+pip install claude-code-navigator
 ```
 
-Compare file hashes and only re-analyze changed files.
+Features:
+- Accurate symbol detection using tree-sitter
+- Support for JSX/TSX files
+- TypeScript interfaces, type aliases, and enums
+- Automatic fallback to regex when tree-sitter not installed
 
-#### 2. Short command aliases
-**Effort:** Medium | **Impact:** High
+New module `js_ts_analyzer.py` with:
+- `JavaScriptAnalyzer` - Parses JS/JSX with tree-sitter
+- `TypeScriptAnalyzer` - Extends JS analyzer for TS/TSX
+- `TREE_SITTER_AVAILABLE` - Flag to check if tree-sitter is installed
 
-```bash
-# Instead of:
-code-search "UserService" --type class
+Symbols detected:
 
-# Allow:
-codemap search "UserService" -t class
-codemap read src/api.py 45-60
-codemap stats
-```
+| Language | Symbols |
+|----------|---------|
+| JavaScript | function, arrow function, class, method |
+| TypeScript | + interface, type alias, enum |
 
----
-
-### Medium Priority
-
-#### 4. AST support for JavaScript/TypeScript
-**Effort:** High | **Impact:** Medium
-
-Currently uses regex for JS/TS. Could use:
-- `esprima` or `acorn` for JavaScript
-- TypeScript compiler API for TypeScript
-
-This would improve symbol detection accuracy.
-
-#### 5. Automatic change detection
-**Effort:** Medium | **Impact:** Medium
+### Automatic change detection
+**Status:** Completed in v1.3.0
 
 Warn when files have changed since map generation:
 
 ```bash
-code-search "user" -m .codemap.json
-# Warning: 3 files have changed since map was generated. Run code-map to update.
+# Check if map is stale
+codemap search --check-stale
+
+# Warn before showing results
+codemap search "user" --warn-stale
 ```
 
-#### 6. Git integration
-**Effort:** Medium | **Impact:** Medium
+Output shows:
+```
+Stale File Check
+  Generated: 2024-01-15T10:00:00
+  Files checked: 142
+  Modified (3):
+    src/api/handlers.py
+    src/models/user.py
+    src/utils.py
 
-- Only map files tracked by git
-- Ignore patterns from .gitignore automatically
-- Option `--since-commit` to see changes since a commit
+Run 'codemap map --incremental' to update the map.
+```
+
+Features:
+- `check_stale_files()` method in `CodeSearcher`
+- `--check-stale` flag to explicitly check for stale files
+- `--warn-stale` flag to warn before showing search results
+- Compares current file hashes with stored hashes
+
+### Git integration
+**Status:** Completed in v1.3.0
+
+Added git integration features:
+
+```bash
+# Only map git-tracked files
+codemap map . --git-only
+
+# Use .gitignore patterns
+codemap map . --use-gitignore
+
+# Show symbols in files changed since a commit
+codemap search --since-commit HEAD~5
+codemap search --since-commit main
+codemap search --since-commit abc123
+```
+
+Features:
+- `--git-only` flag: Only scan files tracked by git
+- `--use-gitignore` flag: Add .gitignore patterns to ignore list
+- `--since-commit` flag: Show symbols in files changed since a commit
+- `GitIntegration` helper class with:
+  - `get_tracked_files()` - Get all git-tracked files
+  - `get_gitignore_patterns()` - Parse .gitignore
+  - `get_files_changed_since()` - Files changed since commit
+  - `get_uncommitted_changes()` - Files with uncommitted changes
+
+### Shell autocompletion
+**Status:** Completed in v1.3.0
+
+Generate bash/zsh completion scripts with symbol names from codemap:
+
+```bash
+# Generate bash completion
+codemap completion bash > ~/.bash_completion.d/codemap
+
+# Generate zsh completion
+codemap completion zsh > ~/.zfunc/_codemap
+
+# Source directly (bash)
+eval "$(codemap completion bash)"
+```
+
+Features:
+- Completes commands: map, search, read, stats, completion, watch, export
+- Completes options for each command
+- Completes symbol types (function, class, method, etc.)
+- Auto-completes symbol names from .codemap.json in current directory
+
+### Watch mode
+**Status:** Completed in v1.3.0
+
+Automatically update map when files change:
+
+```bash
+# Watch with default settings
+codemap watch /path/to/project
+
+# With options
+codemap watch . -o .codemap.json --debounce 2.0 --git-only
+```
+
+Features:
+- Polls for file changes (no external dependencies)
+- Debounce to avoid rapid updates
+- Uses incremental scan for efficiency
+- Shows real-time update statistics
+- Supports --git-only and --use-gitignore
+- Graceful shutdown with Ctrl+C
+
+### Export formats
+**Status:** Completed in v1.3.0
+
+Export code map to different formats:
+
+```bash
+# Export to Markdown
+codemap export -f markdown -o docs/codebase.md
+
+# Export to HTML (interactive)
+codemap export -f html -o docs/codebase.html
+
+# Export to GraphViz (dependency graph)
+codemap export -f graphviz -o docs/deps.dot
+dot -Tpng docs/deps.dot -o docs/deps.png
+```
+
+Formats:
+- **Markdown**: Documentation with statistics, file listing, symbol index
+- **HTML**: Interactive page with search, collapsible files, dark theme
+- **GraphViz**: DOT format dependency graph with file clusters
 
 ---
 
-### Low Priority
+## Planned Improvements
 
-#### 7. Shell autocompletion
-**Effort:** Medium | **Impact:** Low
-
-Generate bash/zsh completion scripts with symbol names from codemap.
-
-#### 8. Watch mode
-**Effort:** Medium | **Impact:** Low
-
-```bash
-code-map . --watch
-```
-
-Automatically update map when files change.
-
-#### 9. Export formats
-**Effort:** Low | **Impact:** Low
-
-Export map in different formats:
-- Markdown (for documentation)
-- HTML (for browsing)
-- GraphViz (for dependency visualization)
+*All planned improvements have been implemented!*
 
 ---
 
 ## Language Support Improvements
 
-| Language | Current | Improvement |
-|----------|---------|-------------|
-| Python | AST | Add type hint extraction |
-| JavaScript | Regex | Add esprima/acorn AST |
-| TypeScript | Regex | Add TS compiler API |
+| Language | Current | Potential Improvement |
+|----------|---------|----------------------|
+| Python | AST ✅ | Add type hint extraction |
+| JavaScript | AST (tree-sitter) ✅ | - |
+| TypeScript | AST (tree-sitter) ✅ | - |
 | Go | Regex | Add go/ast parsing |
 | Rust | Regex | Add syn crate parsing |
 

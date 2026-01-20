@@ -44,13 +44,23 @@ Example:
     >>> content = reader.read_symbol('src/auth.py', 45, 89)
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __author__ = "Efren"
 __license__ = "MIT"
 
-from .code_mapper import CodeMapper, GenericAnalyzer, PythonAnalyzer, Symbol
+from .code_mapper import CodeMapper, GenericAnalyzer, GitIntegration, PythonAnalyzer, Symbol
 from .code_search import CodeSearcher, SearchResult
+from .completions import generate_bash_completion, generate_zsh_completion
+from .exporters import GraphVizExporter, HTMLExporter, MarkdownExporter, get_exporter
 from .line_reader import LineReader
+from .watcher import CodeMapWatcher
+
+# Import JS/TS analyzers (always available, with fallback to GenericAnalyzer)
+from .js_ts_analyzer import (
+    TREE_SITTER_AVAILABLE,
+    JavaScriptAnalyzer,
+    TypeScriptAnalyzer,
+)
 
 __all__ = [
     # Version info
@@ -61,9 +71,24 @@ __all__ = [
     "CodeMapper",
     "CodeSearcher",
     "LineReader",
-    # Supporting classes
+    "CodeMapWatcher",
+    # Analyzers
     "PythonAnalyzer",
     "GenericAnalyzer",
+    "JavaScriptAnalyzer",
+    "TypeScriptAnalyzer",
+    # Exporters
+    "MarkdownExporter",
+    "HTMLExporter",
+    "GraphVizExporter",
+    "get_exporter",
+    # Supporting classes
+    "GitIntegration",
     "Symbol",
     "SearchResult",
+    # Completions
+    "generate_bash_completion",
+    "generate_zsh_completion",
+    # Feature flags
+    "TREE_SITTER_AVAILABLE",
 ]

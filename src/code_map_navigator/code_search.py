@@ -19,13 +19,15 @@ Example:
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
 import sys
 from dataclasses import dataclass
 from difflib import SequenceMatcher
-from typing import Dict, List, Optional, Union
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Union
 
 from .colors import get_colors
 
@@ -482,6 +484,112 @@ class CodeSearcher:
         results.sort(key=lambda x: (x.file, x.name))
         return results[:limit]
 
+    def check_stale_files(self, root_path: Optional[str] = None) -> Dict:
+        """Check for files that have changed since the map was generated.
+
+        Compares current file hashes with stored hashes to detect modifications.
+
+        Args:
+            root_path: Root path of the codebase. If None, uses the root from the map.
+
+        Returns:
+            Dict with 'stale' (modified files), 'missing' (deleted files),
+            'new' (untracked files in map), and 'is_stale' boolean.
+
+        Example:
+            >>> result = searcher.check_stale_files()
+            >>> if result['is_stale']:
+            ...     print(f"Warning: {len(result['stale'])} files changed")
+        """
+        root = root_path or self.code_map.get("root", "")
+        if not root or not os.path.isdir(root):
+            return {
+                "error": f"Root path not found: {root}",
+                "is_stale": False,
+                "stale": [],
+                "missing": [],
+            }
+
+        root_path_obj = Path(root)
+        stale_files = []
+        missing_files = []
+
+        for file_path, file_info in self.code_map.get("files", {}).items():
+            full_path = root_path_obj / file_path
+            stored_hash = file_info.get("hash", "")
+
+            if not full_path.exists():
+                missing_files.append(file_path)
+            else:
+                try:
+                    content = full_path.read_text(encoding="utf-8", errors="ignore")
+                    current_hash = hashlib.md5(content.encode()).hexdigest()[:12]
+                    if current_hash != stored_hash:
+                        stale_files.append(file_path)
+                except Exception:
+                    stale_files.append(file_path)
+
+        return {
+            "is_stale": len(stale_files) > 0 or len(missing_files) > 0,
+            "stale": stale_files,
+            "missing": missing_files,
+            "total_checked": len(self.code_map.get("files", {})),
+            "generated_at": self.code_map.get("generated_at"),
+        }
+
+    def get_changes_since_commit(self, commit: str, root_path: Optional[str] = None) -> Dict:
+        """Get symbols in files that changed since a specific git commit.
+
+        Args:
+            commit: Git commit reference (hash, branch, tag, HEAD~N, etc.)
+            root_path: Root path of the codebase. If None, uses the root from the map.
+
+        Returns:
+            Dict with changed files and their symbols.
+
+        Example:
+            >>> result = searcher.get_changes_since_commit('HEAD~5')
+            >>> for f in result['changed_files']:
+            ...     print(f"{f['file']}: {len(f['symbols'])} symbols")
+        """
+        import subprocess
+
+        root = root_path or self.code_map.get("root", "")
+        if not root or not os.path.isdir(root):
+            return {"error": f"Root path not found: {root}", "changed_files": []}
+
+        # Get changed files from git
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--name-only", commit, "HEAD"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode != 0:
+                return {"error": f"Git error: {result.stderr.strip()}", "changed_files": []}
+
+            changed_files = set(result.stdout.strip().split("\n")) if result.stdout.strip() else set()
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+            return {"error": f"Git not available: {e}", "changed_files": []}
+
+        # Find symbols in changed files
+        files_with_symbols = []
+        for file_path, file_info in self.code_map.get("files", {}).items():
+            if file_path in changed_files:
+                files_with_symbols.append({
+                    "file": file_path,
+                    "symbols": file_info.get("symbols", []),
+                })
+
+        return {
+            "commit": commit,
+            "total_changed": len(changed_files),
+            "tracked_changed": len(files_with_symbols),
+            "changed_files": files_with_symbols,
+        }
+
 
 def format_search_output(
     result: Union[Dict, List],
@@ -512,6 +620,71 @@ def format_search_output(
         # Handle error
         if "error" in result:
             return c.error(f"Error: {result['error']}")
+
+        # Handle --since-commit output
+        if "changed_files" in result and "commit" in result:
+            if result.get("error"):
+                return c.error(f"Error: {result['error']}")
+
+            output = [c.bold(f"Changes since {c.cyan(result.get('commit', 'Unknown'))}")]
+            output.append(f"  Total changed files: {c.yellow(str(result.get('total_changed', 0)))}")
+            output.append(f"  Tracked in map: {c.green(str(result.get('tracked_changed', 0)))}")
+
+            changed_files = result.get("changed_files", [])
+            if changed_files:
+                output.append("")
+                for file_info in changed_files[:20]:
+                    file_path = file_info.get("file", "?")
+                    symbols = file_info.get("symbols", [])
+                    output.append(f"  {c.cyan(file_path)}")
+                    for sym in symbols[:5]:
+                        sym_type = c.magenta(f"[{sym.get('type', '?')}]")
+                        sym_name = c.green(sym.get("name", "?"))
+                        lines = sym.get("lines", [0, 0])
+                        output.append(f"    {sym_type} {sym_name} :{lines[0]}-{lines[1]}")
+                    if len(symbols) > 5:
+                        output.append(f"    {c.dim(f'... and {len(symbols) - 5} more symbols')}")
+
+                if len(changed_files) > 20:
+                    output.append(f"\n  {c.dim(f'... and {len(changed_files) - 20} more files')}")
+            else:
+                output.append(f"\n  {c.dim('No tracked files changed')}")
+
+            return "\n".join(output)
+
+        # Handle stale check
+        if "is_stale" in result:
+            if result.get("error"):
+                return c.error(f"Error: {result['error']}")
+
+            output = [c.bold("Stale File Check")]
+            output.append(f"  Generated: {c.dim(result.get('generated_at', 'Unknown'))}")
+            output.append(f"  Files checked: {c.cyan(str(result.get('total_checked', 0)))}")
+
+            stale = result.get("stale", [])
+            missing = result.get("missing", [])
+
+            if result.get("is_stale"):
+                if stale:
+                    output.append(f"  {c.yellow(f'Modified ({len(stale)}):')}")
+                    for f in stale[:10]:
+                        output.append(f"    {c.yellow(f)}")
+                    if len(stale) > 10:
+                        output.append(f"    {c.dim(f'... and {len(stale) - 10} more')}")
+
+                if missing:
+                    output.append(f"  {c.magenta(f'Deleted ({len(missing)}):')}")
+                    for f in missing[:10]:
+                        output.append(f"    {c.magenta(f)}")
+                    if len(missing) > 10:
+                        output.append(f"    {c.dim(f'... and {len(missing) - 10} more')}")
+
+                output.append("")
+                output.append(c.warning("Run 'codemap map --incremental' to update the map."))
+            else:
+                output.append(f"  Status: {c.success('Up to date')}")
+
+            return "\n".join(output)
 
         # Handle stats
         if "total_symbols" in result:
@@ -581,23 +754,12 @@ def format_search_output(
     return str(result)
 
 
-def main():
-    """Command-line interface for code search.
+def add_search_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add search command arguments to a parser.
 
-    Usage:
-        code-search QUERY [--type TYPE] [--file PATTERN] [--limit N]
-        code-search --structure FILE
-        code-search --deps SYMBOL
-        code-search --stats
-
-    Example:
-        $ code-search "payment" --type function --limit 5
-        $ code-search --structure src/api.py --pretty
+    Args:
+        parser: The argument parser to add arguments to.
     """
-    parser = argparse.ArgumentParser(
-        description="Search through a code map for symbols and files",
-        epilog='Example: code-search "payment" --type function',
-    )
     parser.add_argument("query", nargs="?", help="Search query (symbol name, file pattern, etc.)")
     parser.add_argument(
         "-m",
@@ -616,6 +778,19 @@ def main():
     parser.add_argument("--structure", help="Show structure of a specific file")
     parser.add_argument("--deps", help="Show dependencies of a symbol")
     parser.add_argument("--stats", action="store_true", help="Show codebase statistics")
+    parser.add_argument(
+        "--check-stale", action="store_true", help="Check if any files have changed since map generation"
+    )
+    parser.add_argument(
+        "--warn-stale",
+        action="store_true",
+        help="Warn if files are stale before showing results",
+    )
+    parser.add_argument(
+        "--since-commit",
+        metavar="COMMIT",
+        help="Show symbols in files changed since COMMIT (git ref: hash, branch, HEAD~N)",
+    )
     parser.add_argument("-l", "--limit", type=int, default=10, help="Maximum results (default: 10)")
     parser.add_argument("--no-fuzzy", action="store_true", help="Disable fuzzy matching")
     parser.add_argument(
@@ -629,10 +804,14 @@ def main():
         help="Output format (default: json)",
     )
     parser.add_argument("--no-color", action="store_true", help="Disable colored output")
-    parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__}")
 
-    args = parser.parse_args()
 
+def run_search(args: argparse.Namespace) -> None:
+    """Execute the search command with parsed arguments.
+
+    Args:
+        args: Parsed command-line arguments.
+    """
     # Find map file
     map_path = args.map
     if not os.path.isabs(map_path) and not os.path.exists(map_path):
@@ -645,6 +824,50 @@ def main():
         sys.exit(1)
 
     searcher = CodeSearcher(map_path)
+    c = get_colors(no_color=args.no_color)
+
+    # Check for stale files if requested
+    if args.check_stale:
+        result = searcher.check_stale_files()
+        print(
+            format_search_output(
+                result,
+                style=args.output,
+                compact=args.compact,
+                no_color=args.no_color,
+            )
+        )
+        return
+
+    # Warn about stale files if requested
+    if getattr(args, "warn_stale", False):
+        stale_result = searcher.check_stale_files()
+        if stale_result.get("is_stale"):
+            stale_count = len(stale_result.get("stale", []))
+            missing_count = len(stale_result.get("missing", []))
+            warnings = []
+            if stale_count > 0:
+                warnings.append(f"{stale_count} modified")
+            if missing_count > 0:
+                warnings.append(f"{missing_count} deleted")
+            print(
+                c.warning(f"Warning: {', '.join(warnings)} files since map generation. "
+                          "Run 'codemap map --incremental' to update."),
+                file=sys.stderr,
+            )
+
+    # Handle --since-commit
+    if getattr(args, "since_commit", None):
+        result = searcher.get_changes_since_commit(args.since_commit)
+        print(
+            format_search_output(
+                result,
+                style=args.output,
+                compact=args.compact,
+                no_color=args.no_color,
+            )
+        )
+        return
 
     # Determine operation
     if args.stats:
@@ -687,6 +910,30 @@ def main():
             no_color=args.no_color,
         )
     )
+
+
+def main():
+    """Command-line interface for code search.
+
+    Usage:
+        code-search QUERY [--type TYPE] [--file PATTERN] [--limit N]
+        code-search --structure FILE
+        code-search --deps SYMBOL
+        code-search --stats
+
+    Example:
+        $ code-search "payment" --type function --limit 5
+        $ code-search --structure src/api.py --pretty
+    """
+    parser = argparse.ArgumentParser(
+        description="Search through a code map for symbols and files",
+        epilog='Example: code-search "payment" --type function',
+    )
+    add_search_arguments(parser)
+    parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__}")
+
+    args = parser.parse_args()
+    run_search(args)
 
 
 if __name__ == "__main__":
