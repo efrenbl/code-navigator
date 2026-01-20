@@ -203,7 +203,7 @@ class HTMLExporter(BaseExporter):
         for sym_type, count in sorted(type_counts.items()):
             type_stats_html += f'<div class="stat-item"><span class="type">{html.escape(sym_type)}</span><span class="count">{count}</span></div>'
 
-        return f'''<!DOCTYPE html>
+        return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -368,7 +368,7 @@ class HTMLExporter(BaseExporter):
         }});
     </script>
 </body>
-</html>'''
+</html>"""
 
     def _generate_files_html(self) -> str:
         """Generate HTML for files section."""
@@ -384,23 +384,23 @@ class HTMLExporter(BaseExporter):
                 name = html.escape(sym["name"])
                 sym_type = html.escape(sym["type"])
                 lines = f"{sym['lines'][0]}-{sym['lines'][1]}"
-                symbols_html += f'''
+                symbols_html += f"""
                 <div class="symbol">
                     <span>
                         <span class="symbol-name">{name}</span>
                         <span class="symbol-lines">:{lines}</span>
                     </span>
                     <span class="symbol-type">{sym_type}</span>
-                </div>'''
+                </div>"""
 
-            file_html = f'''
+            file_html = f"""
             <div class="file">
                 <div class="file-header">
                     <span class="file-path">{html.escape(file_path)}</span>
                     <span class="file-count">{len(symbols)} symbols</span>
                 </div>
                 <div class="file-content">{symbols_html}</div>
-            </div>'''
+            </div>"""
             files_html.append(file_html)
 
         return "".join(files_html)
@@ -455,7 +455,7 @@ class GraphVizExporter(BaseExporter):
 
             # Create subgraph (cluster) for file
             cluster_name = file_path.replace("/", "_").replace(".", "_").replace("-", "_")
-            lines.append(f'    subgraph cluster_{cluster_name} {{')
+            lines.append(f"    subgraph cluster_{cluster_name} {{")
             lines.append(f'        label="{self._escape_dot(file_path)}";')
             lines.append("        style=rounded;")
             lines.append("        bgcolor=gray95;")

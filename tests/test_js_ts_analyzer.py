@@ -348,7 +348,9 @@ type Result = 'success' | 'error' | 'pending';
         assert result is not None
         assert result.type == "type"
 
-    @pytest.mark.skipif(not TREE_SITTER_AVAILABLE, reason="const enum detection requires tree-sitter")
+    @pytest.mark.skipif(
+        not TREE_SITTER_AVAILABLE, reason="const enum detection requires tree-sitter"
+    )
     def test_const_enum(self):
         """Test const enum detection (tree-sitter only)."""
         source = """

@@ -570,7 +570,9 @@ class CodeSearcher:
             if result.returncode != 0:
                 return {"error": f"Git error: {result.stderr.strip()}", "changed_files": []}
 
-            changed_files = set(result.stdout.strip().split("\n")) if result.stdout.strip() else set()
+            changed_files = (
+                set(result.stdout.strip().split("\n")) if result.stdout.strip() else set()
+            )
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
             return {"error": f"Git not available: {e}", "changed_files": []}
 
@@ -578,10 +580,12 @@ class CodeSearcher:
         files_with_symbols = []
         for file_path, file_info in self.code_map.get("files", {}).items():
             if file_path in changed_files:
-                files_with_symbols.append({
-                    "file": file_path,
-                    "symbols": file_info.get("symbols", []),
-                })
+                files_with_symbols.append(
+                    {
+                        "file": file_path,
+                        "symbols": file_info.get("symbols", []),
+                    }
+                )
 
         return {
             "commit": commit,
@@ -779,7 +783,9 @@ def add_search_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--deps", help="Show dependencies of a symbol")
     parser.add_argument("--stats", action="store_true", help="Show codebase statistics")
     parser.add_argument(
-        "--check-stale", action="store_true", help="Check if any files have changed since map generation"
+        "--check-stale",
+        action="store_true",
+        help="Check if any files have changed since map generation",
     )
     parser.add_argument(
         "--warn-stale",
@@ -851,8 +857,10 @@ def run_search(args: argparse.Namespace) -> None:
             if missing_count > 0:
                 warnings.append(f"{missing_count} deleted")
             print(
-                c.warning(f"Warning: {', '.join(warnings)} files since map generation. "
-                          "Run 'codemap map --incremental' to update."),
+                c.warning(
+                    f"Warning: {', '.join(warnings)} files since map generation. "
+                    "Run 'codemap map --incremental' to update."
+                ),
                 file=sys.stderr,
             )
 

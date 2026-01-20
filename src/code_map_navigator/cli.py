@@ -59,9 +59,7 @@ def main():
         description="Token-efficient code navigation - reduce token usage by 97%",
         epilog="Run 'codemap <command> --help' for more information on a command.",
     )
-    parser.add_argument(
-        "-v", "--version", action="version", version=f"%(prog)s {__version__}"
-    )
+    parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__}")
 
     subparsers = parser.add_subparsers(dest="command", metavar="<command>")
 
@@ -179,9 +177,7 @@ def main():
         default="markdown",
         help="Export format (default: markdown)",
     )
-    export_parser.add_argument(
-        "-o", "--output", help="Output file (default: stdout)"
-    )
+    export_parser.add_argument("-o", "--output", help="Output file (default: stdout)")
     export_parser.add_argument("--no-color", action="store_true", help="Disable colored output")
 
     args = parser.parse_args()

@@ -90,13 +90,18 @@ class TestAddArgumentsFunctions:
         parser = argparse.ArgumentParser()
         add_map_arguments(parser)
 
-        args = parser.parse_args([
-            "/some/path",
-            "-o", "custom.json",
-            "-i", "*.test.py", "*.spec.py",
-            "--compact",
-            "--no-color"
-        ])
+        args = parser.parse_args(
+            [
+                "/some/path",
+                "-o",
+                "custom.json",
+                "-i",
+                "*.test.py",
+                "*.spec.py",
+                "--compact",
+                "--no-color",
+            ]
+        )
         assert args.path == "/some/path"
         assert args.output == "custom.json"
         assert args.ignore == ["*.test.py", "*.spec.py"]
@@ -121,16 +126,23 @@ class TestAddArgumentsFunctions:
         parser = argparse.ArgumentParser()
         add_search_arguments(parser)
 
-        args = parser.parse_args([
-            "process",
-            "-m", "custom.json",
-            "-t", "function",
-            "-f", "src/",
-            "-l", "20",
-            "--no-fuzzy",
-            "--compact",
-            "-o", "table"
-        ])
+        args = parser.parse_args(
+            [
+                "process",
+                "-m",
+                "custom.json",
+                "-t",
+                "function",
+                "-f",
+                "src/",
+                "-l",
+                "20",
+                "--no-fuzzy",
+                "--compact",
+                "-o",
+                "table",
+            ]
+        )
         assert args.query == "process"
         assert args.map == "custom.json"
         assert args.type == "function"
@@ -165,16 +177,22 @@ class TestAddArgumentsFunctions:
         parser = argparse.ArgumentParser()
         add_read_arguments(parser)
 
-        args = parser.parse_args([
-            "src/api.py",
-            "10-20",
-            "-r", "/project",
-            "-c", "5",
-            "--symbol",
-            "--max-lines", "50",
-            "-o", "code",
-            "--compact"
-        ])
+        args = parser.parse_args(
+            [
+                "src/api.py",
+                "10-20",
+                "-r",
+                "/project",
+                "-c",
+                "5",
+                "--symbol",
+                "--max-lines",
+                "50",
+                "-o",
+                "code",
+                "--compact",
+            ]
+        )
         assert args.file == "src/api.py"
         assert args.lines == "10-20"
         assert args.root == "/project"
@@ -256,17 +274,34 @@ class TestSearchCommand:
                 "test.py": {
                     "hash": "abc123",
                     "symbols": [
-                        {"name": "hello", "type": "function", "lines": [1, 5], "signature": "def hello()"},
-                        {"name": "MyClass", "type": "class", "lines": [10, 30], "signature": "class MyClass"},
-                        {"name": "get_value", "type": "method", "lines": [15, 20], "parent": "MyClass"},
-                    ]
+                        {
+                            "name": "hello",
+                            "type": "function",
+                            "lines": [1, 5],
+                            "signature": "def hello()",
+                        },
+                        {
+                            "name": "MyClass",
+                            "type": "class",
+                            "lines": [10, 30],
+                            "signature": "class MyClass",
+                        },
+                        {
+                            "name": "get_value",
+                            "type": "method",
+                            "lines": [15, 20],
+                            "parent": "MyClass",
+                        },
+                    ],
                 }
             },
             "index": {
                 "hello": [{"file": "test.py", "type": "function", "lines": [1, 5]}],
                 "myclass": [{"file": "test.py", "type": "class", "lines": [10, 30]}],
-                "get_value": [{"file": "test.py", "type": "method", "lines": [15, 20], "parent": "MyClass"}],
-            }
+                "get_value": [
+                    {"file": "test.py", "type": "method", "lines": [15, 20], "parent": "MyClass"}
+                ],
+            },
         }
 
         map_path = tmp_path / ".codemap.json"
@@ -379,7 +414,7 @@ class TestStatsCommand:
             "generated_at": "2024-01-01T00:00:00",
             "stats": {"files_processed": 5, "symbols_found": 50, "errors": 0},
             "files": {},
-            "index": {}
+            "index": {},
         }
 
         map_path = tmp_path / ".codemap.json"
@@ -401,14 +436,17 @@ class TestBackwardCompatibility:
     def test_code_mapper_main_import(self):
         """Test that code_mapper.main is still importable."""
         from code_map_navigator.code_mapper import main
+
         assert callable(main)
 
     def test_code_search_main_import(self):
         """Test that code_search.main is still importable."""
         from code_map_navigator.code_search import main
+
         assert callable(main)
 
     def test_line_reader_main_import(self):
         """Test that line_reader.main is still importable."""
         from code_map_navigator.line_reader import main
+
         assert callable(main)
