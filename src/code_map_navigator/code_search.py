@@ -540,7 +540,7 @@ class CodeSearcher:
                     current_hash = compute_content_hash(content)
                     if current_hash != stored_hash:
                         stale_files.append(file_path)
-                except (OSError, IOError):
+                except OSError:
                     stale_files.append(file_path)
 
         return {

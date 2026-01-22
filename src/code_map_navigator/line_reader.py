@@ -83,7 +83,7 @@ class LineReader:
             raise ValueError(
                 f"Security error: path '{file_path}' escapes root directory. "
                 f"Resolved to '{resolved}' which is outside '{root_resolved}'"
-            )
+            ) from None
 
         return resolved
 
@@ -537,28 +537,52 @@ def run_read(args: argparse.Namespace) -> None:
                     start = int(start_str.strip())
                     end = int(end_str.strip())
                     if start < 1:
-                        result = {"error": f"Invalid line number: {start}. Line numbers must be >= 1"}
-                        print(format_output(result, args.output, compact=args.compact, no_color=args.no_color))
+                        result = {
+                            "error": f"Invalid line number: {start}. Line numbers must be >= 1"
+                        }
+                        print(
+                            format_output(
+                                result, args.output, compact=args.compact, no_color=args.no_color
+                            )
+                        )
                         return
                     if end < 1:
                         result = {"error": f"Invalid line number: {end}. Line numbers must be >= 1"}
-                        print(format_output(result, args.output, compact=args.compact, no_color=args.no_color))
+                        print(
+                            format_output(
+                                result, args.output, compact=args.compact, no_color=args.no_color
+                            )
+                        )
                         return
                     if start > end:
                         result = {"error": f"Invalid range: {start}-{end}. Start must be <= end"}
-                        print(format_output(result, args.output, compact=args.compact, no_color=args.no_color))
+                        print(
+                            format_output(
+                                result, args.output, compact=args.compact, no_color=args.no_color
+                            )
+                        )
                         return
                     ranges.append((start, end))
                 else:
                     line = int(part)
                     if line < 1:
-                        result = {"error": f"Invalid line number: {line}. Line numbers must be >= 1"}
-                        print(format_output(result, args.output, compact=args.compact, no_color=args.no_color))
+                        result = {
+                            "error": f"Invalid line number: {line}. Line numbers must be >= 1"
+                        }
+                        print(
+                            format_output(
+                                result, args.output, compact=args.compact, no_color=args.no_color
+                            )
+                        )
                         return
                     ranges.append((line, line))
             except ValueError:
-                result = {"error": f"Invalid line specification: '{part}'. Expected number or range (e.g., '10' or '10-20')"}
-                print(format_output(result, args.output, compact=args.compact, no_color=args.no_color))
+                result = {
+                    "error": f"Invalid line specification: '{part}'. Expected number or range (e.g., '10' or '10-20')"
+                }
+                print(
+                    format_output(result, args.output, compact=args.compact, no_color=args.no_color)
+                )
                 return
 
         if not ranges:

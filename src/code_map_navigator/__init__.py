@@ -44,13 +44,23 @@ Example:
     >>> content = reader.read_symbol('src/auth.py', 45, 89)
 """
 
+import hashlib
+
+from .code_mapper import CodeMapper, GenericAnalyzer, GitIntegration, PythonAnalyzer, Symbol
+from .code_search import CodeSearcher, SearchResult
+from .completions import generate_bash_completion, generate_zsh_completion
+from .exporters import GraphVizExporter, HTMLExporter, MarkdownExporter, get_exporter
+from .js_ts_analyzer import (
+    TREE_SITTER_AVAILABLE,
+    JavaScriptAnalyzer,
+    TypeScriptAnalyzer,
+)
+from .line_reader import LineReader
+from .watcher import CodeMapWatcher
+
 __version__ = "1.4.1"
 __author__ = "Efren"
 __license__ = "MIT"
-
-
-# Shared utility functions
-import hashlib
 
 
 def compute_content_hash(content: str) -> str:
@@ -71,19 +81,6 @@ def compute_content_hash(content: str) -> str:
     """
     return hashlib.md5(content.encode()).hexdigest()[:12]
 
-from .code_mapper import CodeMapper, GenericAnalyzer, GitIntegration, PythonAnalyzer, Symbol
-from .code_search import CodeSearcher, SearchResult
-from .completions import generate_bash_completion, generate_zsh_completion
-from .exporters import GraphVizExporter, HTMLExporter, MarkdownExporter, get_exporter
-
-# Import JS/TS analyzers (always available, with fallback to GenericAnalyzer)
-from .js_ts_analyzer import (
-    TREE_SITTER_AVAILABLE,
-    JavaScriptAnalyzer,
-    TypeScriptAnalyzer,
-)
-from .line_reader import LineReader
-from .watcher import CodeMapWatcher
 
 __all__ = [
     # Version info

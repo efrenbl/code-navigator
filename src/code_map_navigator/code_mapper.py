@@ -911,7 +911,7 @@ class CodeMapper:
                         current_hash = self.get_current_file_hash(file_path)
                         if current_hash:
                             current_files[rel_path] = current_hash
-                    except (OSError, IOError, PermissionError):
+                    except OSError:
                         # File disappeared or became inaccessible during scan
                         pass
 
@@ -972,14 +972,17 @@ class CodeMapper:
                 # Check file still exists and is a regular file (not symlink)
                 if not file_path.is_file() or file_path.is_symlink():
                     # File was deleted or replaced with symlink between hash and analyze
-                    print(f"  Skipping {rel_path}: file no longer exists or is symlink", file=sys.stderr)
+                    print(
+                        f"  Skipping {rel_path}: file no longer exists or is symlink",
+                        file=sys.stderr,
+                    )
                     self.stats["errors"] += 1
                     continue
 
                 symbols = self.analyze_file(file_path)
                 self.symbols.extend(symbols)
                 self.stats["files_processed"] += 1
-            except (OSError, IOError, PermissionError) as e:
+            except OSError as e:
                 # File became inaccessible between hash check and analysis (TOCTOU)
                 print(f"  Skipping {rel_path}: {e}", file=sys.stderr)
                 self.stats["errors"] += 1

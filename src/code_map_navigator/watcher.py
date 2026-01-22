@@ -153,7 +153,7 @@ class CodeMapWatcher:
 
             content = file_path.read_text(encoding="utf-8", errors="replace")
             return compute_content_hash(content)
-        except (OSError, IOError, PermissionError):
+        except OSError:
             # File may have been deleted, or permission denied - this is expected
             # during rapid file changes (TOCTOU race condition handling)
             return None
@@ -238,9 +238,7 @@ class CodeMapWatcher:
             tmp_path = None
             try:
                 tmp_fd, tmp_path = tempfile.mkstemp(
-                    suffix=".json.tmp",
-                    dir=output_dir,
-                    prefix=".codemap_"
+                    suffix=".json.tmp", dir=output_dir, prefix=".codemap_"
                 )
                 with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
                     tmp_fd = None  # os.fdopen takes ownership
@@ -282,12 +280,15 @@ class CodeMapWatcher:
                     file=sys.stderr,
                 )
 
-        except (OSError, IOError) as e:
+        except OSError as e:
             print(f"{c.error('✗')} Disk error updating map: {e}", file=sys.stderr)
         except (json.JSONDecodeError, TypeError) as e:
             print(f"{c.error('✗')} Data error in map: {e}", file=sys.stderr)
         except Exception as e:
-            print(f"{c.error('✗')} Unexpected error updating map: {type(e).__name__}: {e}", file=sys.stderr)
+            print(
+                f"{c.error('✗')} Unexpected error updating map: {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
 
     def _initial_scan(self) -> None:
         """Perform initial scan to populate file hashes."""
