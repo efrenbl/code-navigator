@@ -2,14 +2,14 @@
 """Tests for the ImportResolver module."""
 
 import json
+
 import pytest
-from pathlib import Path
 
 from codenav.import_resolver import (
+    AliasConfig,
     ImportResolver,
     ResolveResult,
     ResolveStrategy,
-    AliasConfig,
     resolve_import_path,
 )
 
@@ -31,7 +31,9 @@ def ts_project(tmp_path):
     (tmp_path / "src" / "components" / "Button.tsx").write_text("export const Button = () => {};")
     (tmp_path / "src" / "components" / "index.ts").write_text("export * from './Button';")
     (tmp_path / "src" / "utils" / "helpers.ts").write_text("export const helper = () => {};")
-    (tmp_path / "src" / "api" / "client.ts").write_text("import { helper } from '../utils/helpers';")
+    (tmp_path / "src" / "api" / "client.ts").write_text(
+        "import { helper } from '../utils/helpers';"
+    )
     (tmp_path / "shared" / "types" / "index.ts").write_text("export type User = {};")
 
     # Create tsconfig.json
@@ -42,7 +44,7 @@ def ts_project(tmp_path):
                 "@/*": ["src/*"],
                 "@components/*": ["src/components/*"],
                 "~/*": ["shared/*"],
-            }
+            },
         }
     }
     (tmp_path / "tsconfig.json").write_text(json.dumps(tsconfig, indent=2))
@@ -230,11 +232,7 @@ class TestImportResolverPython:
         resolver = ImportResolver(str(python_project))
         resolver.build_index()
 
-        result = resolver.resolve(
-            "src/myapp/main.py",
-            ".core.config",
-            language="python"
-        )
+        result = resolver.resolve("src/myapp/main.py", ".core.config", language="python")
         # Note: Python dotted relative imports are tricky
         # This tests the normalization logic
         assert "config" in result.original_import
@@ -244,11 +242,7 @@ class TestImportResolverPython:
         resolver = ImportResolver(str(python_project))
         resolver.build_index()
 
-        result = resolver.resolve(
-            "tests/test_main.py",
-            "myapp/core",
-            language="python"
-        )
+        result = resolver.resolve("tests/test_main.py", "myapp/core", language="python")
         # Should resolve to __init__.py
         if result.found:
             assert "__init__.py" in result.path or "config" in result.path
@@ -259,11 +253,7 @@ class TestImportResolverPython:
         resolver.build_index()
 
         # app.core.config should be normalized to app/core/config
-        result = resolver.resolve(
-            "tests/test_main.py",
-            "myapp.utils.helpers",
-            language="python"
-        )
+        result = resolver.resolve("tests/test_main.py", "myapp.utils.helpers", language="python")
         if result.found:
             assert "helpers" in result.path
 
@@ -306,15 +296,15 @@ class TestImportResolverEdgeCases:
     def test_circular_tsconfig_extends(self, tmp_path):
         """Test handling circular tsconfig extends."""
         # Create configs that extend each other
-        (tmp_path / "tsconfig.json").write_text(json.dumps({
-            "extends": "./tsconfig.base.json"
-        }))
-        (tmp_path / "tsconfig.base.json").write_text(json.dumps({
-            "extends": "./tsconfig.json",  # Circular!
-            "compilerOptions": {
-                "paths": {"@/*": ["src/*"]}
-            }
-        }))
+        (tmp_path / "tsconfig.json").write_text(json.dumps({"extends": "./tsconfig.base.json"}))
+        (tmp_path / "tsconfig.base.json").write_text(
+            json.dumps(
+                {
+                    "extends": "./tsconfig.json",  # Circular!
+                    "compilerOptions": {"paths": {"@/*": ["src/*"]}},
+                }
+            )
+        )
 
         resolver = ImportResolver(str(tmp_path))
         # Should not infinite loop

@@ -24,21 +24,21 @@ import os
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from fnmatch import fnmatch
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 
 class ResolveStrategy(Enum):
     """Enumeration of resolution strategies used."""
-    EXACT = "exact"              # Direct path match
-    RELATIVE = "relative"        # ./foo, ../bar
-    ALIAS = "alias"              # @/foo, ~/bar, #components
-    INDEX = "index"              # Implicit index file
-    SUFFIX = "suffix"            # Partial path match
-    MODULE = "module"            # Go/Python module prefix
-    PACKAGE = "package"          # node_modules, Python package
-    NOT_FOUND = "not_found"      # Resolution failed
+
+    EXACT = "exact"  # Direct path match
+    RELATIVE = "relative"  # ./foo, ../bar
+    ALIAS = "alias"  # @/foo, ~/bar, #components
+    INDEX = "index"  # Implicit index file
+    SUFFIX = "suffix"  # Partial path match
+    MODULE = "module"  # Go/Python module prefix
+    PACKAGE = "package"  # node_modules, Python package
+    NOT_FOUND = "not_found"  # Resolution failed
 
 
 @dataclass
@@ -52,6 +52,7 @@ class ResolveResult:
         original_import: The original import string.
         confidence: 0.0-1.0 indicating resolution confidence.
     """
+
     path: Optional[str]
     strategy: ResolveStrategy
     candidates: List[str] = field(default_factory=list)
@@ -75,6 +76,7 @@ class AliasConfig:
         prefix: Part before the wildcard.
         suffix: Part after the wildcard.
     """
+
     pattern: str
     targets: List[str]
     is_wildcard: bool = False
@@ -87,7 +89,7 @@ class AliasConfig:
             self.is_wildcard = True
             idx = self.pattern.index("*")
             self.prefix = self.pattern[:idx]
-            self.suffix = self.pattern[idx + 1:]
+            self.suffix = self.pattern[idx + 1 :]
         else:
             self.prefix = self.pattern
 
@@ -112,9 +114,9 @@ class AliasConfig:
             return None
 
         # Extract wildcard portion
-        wildcard_part = import_path[len(self.prefix):]
+        wildcard_part = import_path[len(self.prefix) :]
         if self.suffix:
-            wildcard_part = wildcard_part[:-len(self.suffix)]
+            wildcard_part = wildcard_part[: -len(self.suffix)]
 
         return wildcard_part
 
@@ -131,7 +133,7 @@ class AliasConfig:
         for target in self.targets:
             if "*" in target:
                 idx = target.index("*")
-                resolved = target[:idx] + wildcard_part + target[idx + 1:]
+                resolved = target[:idx] + wildcard_part + target[idx + 1 :]
             else:
                 resolved = target + wildcard_part if wildcard_part else target
             results.append(resolved)
@@ -197,8 +199,19 @@ class ImportResolver:
 
     # Directories to skip
     IGNORED_DIRS = {
-        "node_modules", "__pycache__", ".git", ".svn", "venv", "env",
-        ".venv", "dist", "build", ".next", "coverage", "vendor", "target",
+        "node_modules",
+        "__pycache__",
+        ".git",
+        ".svn",
+        "venv",
+        "env",
+        ".venv",
+        "dist",
+        "build",
+        ".next",
+        "coverage",
+        "vendor",
+        "target",
     }
 
     def __init__(
@@ -320,9 +333,9 @@ class ImportResolver:
             # Read and parse JSON (with comment stripping)
             content = config_path.read_text(encoding="utf-8")
             # Remove single-line comments
-            content = re.sub(r'//.*?$', '', content, flags=re.MULTILINE)
+            content = re.sub(r"//.*?$", "", content, flags=re.MULTILINE)
             # Remove multi-line comments
-            content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+            content = re.sub(r"/\*.*?\*/", "", content, flags=re.DOTALL)
             config = json.loads(content)
         except (json.JSONDecodeError, OSError):
             return {}, ""
@@ -377,10 +390,12 @@ class ImportResolver:
             # Try to import tomllib (Python 3.11+) or toml
             try:
                 import tomllib
+
                 data = tomllib.loads(content)
             except ImportError:
                 try:
                     import toml
+
                     data = toml.loads(content)
                 except ImportError:
                     # Fallback: regex parsing for simple cases
@@ -438,11 +453,11 @@ class ImportResolver:
             self, for method chaining.
         """
         self.file_index = {
-            "exact": set(),       # All file paths
-            "no_ext": {},         # path without extension -> paths
-            "suffix": {},         # path suffix -> paths
-            "dir": {},            # directory -> files
-            "basename": {},       # filename without dir -> paths
+            "exact": set(),  # All file paths
+            "no_ext": {},  # path without extension -> paths
+            "suffix": {},  # path suffix -> paths
+            "dir": {},  # directory -> files
+            "basename": {},  # filename without dir -> paths
         }
 
         # Determine extensions to look for
@@ -605,7 +620,7 @@ class ImportResolver:
 
         # Strategy 3: Module prefix (e.g., "mypackage/utils" for Go/Python)
         if self.module_name and import_string.startswith(self.module_name):
-            rest = import_string[len(self.module_name):].lstrip("/.")
+            rest = import_string[len(self.module_name) :].lstrip("/.")
             result = self._try_resolve_path(rest, language)
             if result.found:
                 result.strategy = ResolveStrategy.MODULE
@@ -641,9 +656,14 @@ class ImportResolver:
         """Detect language from file extension."""
         ext = Path(file_path).suffix.lower()
         mapping = {
-            ".ts": "typescript", ".tsx": "typescript", ".d.ts": "typescript",
-            ".js": "javascript", ".jsx": "javascript", ".mjs": "javascript",
-            ".py": "python", ".pyi": "python",
+            ".ts": "typescript",
+            ".tsx": "typescript",
+            ".d.ts": "typescript",
+            ".js": "javascript",
+            ".jsx": "javascript",
+            ".mjs": "javascript",
+            ".py": "python",
+            ".pyi": "python",
             ".go": "go",
             ".rs": "rust",
             ".rb": "ruby",
@@ -672,7 +692,7 @@ class ImportResolver:
         # Go: module/package/file -> package/file
         if language == "go" and self.module_name:
             if imp.startswith(self.module_name + "/"):
-                imp = imp[len(self.module_name) + 1:]
+                imp = imp[len(self.module_name) + 1 :]
 
         return imp
 
@@ -811,10 +831,7 @@ class ImportResolver:
         Returns:
             Dict mapping import strings to ResolveResults.
         """
-        return {
-            imp: self.resolve(source_file, imp, language)
-            for imp in imports
-        }
+        return {imp: self.resolve(source_file, imp, language) for imp in imports}
 
 
 # Convenience function for simple use cases

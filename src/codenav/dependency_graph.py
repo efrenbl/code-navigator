@@ -19,10 +19,11 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 try:
     import networkx as nx
+
     HAS_NETWORKX = True
 except ImportError:
     HAS_NETWORKX = False
@@ -43,6 +44,7 @@ class FileNode:
         in_degree: Number of files importing this file.
         out_degree: Number of files this file imports.
     """
+
     path: str
     language: str = ""
     imports: List[str] = field(default_factory=list)
@@ -105,15 +107,30 @@ class DependencyGraph:
 
     # Directories to ignore
     IGNORED_DIRS = {
-        "node_modules", "__pycache__", ".git", ".svn", "venv", "env",
-        ".env", "dist", "build", ".next", "coverage", "vendor", "target",
-        ".tox", "eggs", ".pytest_cache", ".mypy_cache", ".ruff_cache",
+        "node_modules",
+        "__pycache__",
+        ".git",
+        ".svn",
+        "venv",
+        "env",
+        ".env",
+        "dist",
+        "build",
+        ".next",
+        "coverage",
+        "vendor",
+        "target",
+        ".tox",
+        "eggs",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
     }
 
     # PageRank parameters
     DEFAULT_DAMPING = 0.85  # Standard damping factor
     DEFAULT_MAX_ITER = 100  # Maximum iterations for convergence
-    DEFAULT_TOL = 1e-06     # Convergence tolerance
+    DEFAULT_TOL = 1e-06  # Convergence tolerance
 
     def __init__(self, root: str, damping: float = None):
         """Initialize the dependency graph analyzer.
@@ -129,8 +146,7 @@ class DependencyGraph:
         """
         if not HAS_NETWORKX:
             raise ImportError(
-                "networkx is required for DependencyGraph. "
-                "Install with: pip install networkx"
+                "networkx is required for DependencyGraph. " "Install with: pip install networkx"
             )
 
         self.root = Path(root).resolve()
@@ -212,6 +228,7 @@ class DependencyGraph:
         if package_json.exists():
             try:
                 import json
+
                 data = json.loads(package_json.read_text())
                 return data.get("name", "")
             except Exception:
@@ -261,11 +278,11 @@ class DependencyGraph:
         - Directory (for package imports)
         """
         self.file_index = {
-            "exact": {},      # exact path -> [files]
-            "no_ext": {},     # path without extension -> [files]
-            "suffix": {},     # path suffix -> [files]
-            "dir": {},        # directory -> [files]
-            "basename": {},   # just filename -> [files]
+            "exact": {},  # exact path -> [files]
+            "no_ext": {},  # path without extension -> [files]
+            "suffix": {},  # path suffix -> [files]
+            "dir": {},  # directory -> [files]
+            "basename": {},  # just filename -> [files]
         }
 
         for path in files:
@@ -377,7 +394,7 @@ class DependencyGraph:
         # Match single import: import "path"
         imports.extend(re.findall(r'import\s+"([^"]+)"', content))
         # Match grouped imports: import ( "path1" "path2" )
-        block_match = re.search(r'import\s*\((.*?)\)', content, re.DOTALL)
+        block_match = re.search(r"import\s*\((.*?)\)", content, re.DOTALL)
         if block_match:
             imports.extend(re.findall(r'"([^"]+)"', block_match.group(1)))
         return imports
@@ -386,9 +403,9 @@ class DependencyGraph:
         """Extract imports from Rust code."""
         imports = []
         # Match: use crate::path, use super::path, use path
-        imports.extend(re.findall(r'use\s+([\w:]+)', content))
+        imports.extend(re.findall(r"use\s+([\w:]+)", content))
         # Match: mod name
-        imports.extend(re.findall(r'mod\s+(\w+)', content))
+        imports.extend(re.findall(r"mod\s+(\w+)", content))
         return imports
 
     def _extract_generic_imports(self, content: str) -> List[str]:
@@ -439,7 +456,7 @@ class DependencyGraph:
 
         # Strategy 2: Module-prefixed (internal package)
         if self.module_name and imp.startswith(self.module_name):
-            rest = imp[len(self.module_name):].lstrip("/.")
+            rest = imp[len(self.module_name) :].lstrip("/.")
             candidates = self._try_exact_match(rest)
             if candidates:
                 return candidates
@@ -499,8 +516,21 @@ class DependencyGraph:
 
     def _try_exact_match(self, path: str) -> List[str]:
         """Try to match path exactly (with common extensions)."""
-        extensions = ["", ".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs",
-                      "/index.js", "/index.ts", "/index.tsx", "/__init__.py", "/mod.rs"]
+        extensions = [
+            "",
+            ".py",
+            ".js",
+            ".ts",
+            ".tsx",
+            ".jsx",
+            ".go",
+            ".rs",
+            "/index.js",
+            "/index.ts",
+            "/index.tsx",
+            "/__init__.py",
+            "/mod.rs",
+        ]
 
         for ext in extensions:
             candidate = path + ext
@@ -595,7 +625,7 @@ class DependencyGraph:
         ranked = sorted(
             [(path, node.pagerank) for path, node in self.nodes.items()],
             key=lambda x: x[1],
-            reverse=True
+            reverse=True,
         )
 
         return ranked[:top_n]
@@ -623,10 +653,7 @@ class DependencyGraph:
         Returns:
             List of file paths that are hubs.
         """
-        return [
-            path for path, node in self.nodes.items()
-            if node.in_degree >= threshold
-        ]
+        return [path for path, node in self.nodes.items() if node.in_degree >= threshold]
 
     def get_connected_files(self, path: str) -> List[str]:
         """Get all files connected to the given file (imports + importers).
@@ -655,6 +682,7 @@ class DependencyGraph:
         Returns:
             Nested dict representing the dependency tree.
         """
+
         def _build_chain(current: str, remaining_depth: int, seen: Set[str]) -> Dict:
             if remaining_depth <= 0 or current in seen or current not in self.nodes:
                 return {}
@@ -682,6 +710,7 @@ class DependencyGraph:
         Returns:
             Nested dict representing who imports this file.
         """
+
         def _build_chain(current: str, remaining_depth: int, seen: Set[str]) -> Dict:
             if remaining_depth <= 0 or current in seen or current not in self.nodes:
                 return {}
@@ -721,8 +750,9 @@ class DependencyGraph:
                 sum(n.in_degree for n in self.nodes.values()) / max(len(self.nodes), 1)
             ),
             "languages": dict(self._count_by_language()),
-            "isolated_files": len([n for n in self.nodes.values()
-                                   if n.in_degree == 0 and n.out_degree == 0]),
+            "isolated_files": len(
+                [n for n in self.nodes.values() if n.in_degree == 0 and n.out_degree == 0]
+            ),
         }
 
     def _count_by_language(self) -> Dict[str, int]:
@@ -754,7 +784,7 @@ class DependencyGraph:
                     "importers": node.importers,
                 }
                 for path, node in self.nodes.items()
-            }
+            },
         }
 
 

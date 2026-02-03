@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Tests for the DependencyGraph module."""
 
-import tempfile
-import os
 import pytest
 
 # Skip all tests if networkx is not installed
 networkx = pytest.importorskip("networkx")
 
-from codenav.dependency_graph import DependencyGraph, FileNode, analyze_repository
+from codenav.dependency_graph import (  # noqa: E402
+    DependencyGraph,
+    FileNode,
+    analyze_repository,
+)
 
 
 @pytest.fixture

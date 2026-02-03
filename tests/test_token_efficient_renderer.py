@@ -2,13 +2,13 @@
 """Tests for the TokenEfficientRenderer module."""
 
 import json
+
 import pytest
-from pathlib import Path
 
 from codenav.token_efficient_renderer import (
-    TokenEfficientRenderer,
     FileMicroMeta,
     HubLevel,
+    TokenEfficientRenderer,
     TreeNode,
     render_skeleton_tree,
 )
@@ -28,14 +28,14 @@ def sample_code_map():
                     {"name": "get", "type": "method", "parent": "APIClient", "lines": [15, 25]},
                     {"name": "post", "type": "method", "parent": "APIClient", "lines": [27, 40]},
                     {"name": "delete", "type": "method", "parent": "APIClient", "lines": [42, 50]},
-                ]
+                ],
             },
             "src/api/routes.py": {
                 "hash": "def456",
                 "symbols": [
                     {"name": "handle_request", "type": "function", "lines": [5, 20]},
                     {"name": "validate", "type": "function", "lines": [22, 35]},
-                ]
+                ],
             },
             "src/core/config.py": {
                 "hash": "ghi789",
@@ -44,7 +44,7 @@ def sample_code_map():
                     {"name": "load", "type": "method", "parent": "Config", "lines": [12, 30]},
                     {"name": "save", "type": "method", "parent": "Config", "lines": [32, 50]},
                     {"name": "validate", "type": "method", "parent": "Config", "lines": [52, 60]},
-                ]
+                ],
             },
             "src/core/utils.py": {
                 "hash": "jkl012",
@@ -52,20 +52,20 @@ def sample_code_map():
                     {"name": "helper", "type": "function", "lines": [3, 10]},
                     {"name": "format_date", "type": "function", "lines": [12, 20]},
                     {"name": "_private_func", "type": "function", "lines": [22, 30]},
-                ]
+                ],
             },
             "tests/test_api.py": {
                 "hash": "mno345",
                 "symbols": [
                     {"name": "test_client", "type": "function", "lines": [5, 15]},
                     {"name": "test_routes", "type": "function", "lines": [17, 30]},
-                ]
+                ],
             },
         },
         "stats": {
             "files_processed": 5,
             "symbols_found": 12,
-        }
+        },
     }
 
 
@@ -140,9 +140,7 @@ class TestFileMicroMeta:
         meta = FileMicroMeta(
             path="big.py",
             classes=["VeryLongClassNameThatExceedsNormalWidth"],
-            methods={"VeryLongClassNameThatExceedsNormalWidth": [
-                "method1", "method2", "method3"
-            ]},
+            methods={"VeryLongClassNameThatExceedsNormalWidth": ["method1", "method2", "method3"]},
         )
         result = meta.format_micro(max_width=30)
         assert len(result) <= 35  # Some tolerance
@@ -170,12 +168,10 @@ class TestTreeNode:
         file1 = TreeNode(
             name="a.py",
             is_file=True,
-            meta=FileMicroMeta(path="a.py", classes=["A"], importers_count=5)
+            meta=FileMicroMeta(path="a.py", classes=["A"], importers_count=5),
         )
         file2 = TreeNode(
-            name="b.py",
-            is_file=True,
-            meta=FileMicroMeta(path="b.py", functions=["b1", "b2"])
+            name="b.py", is_file=True, meta=FileMicroMeta(path="b.py", functions=["b1", "b2"])
         )
         dir_node = TreeNode(name="src", children={"a.py": file1, "b.py": file2})
 
@@ -303,8 +299,8 @@ class TestTokenStats:
         assert "savings_percent" in stats
 
         # Tree should be more compact than JSON
-        assert stats['tree_chars'] < stats['json_chars']
-        assert stats['savings_percent'] > 0
+        assert stats["tree_chars"] < stats["json_chars"]
+        assert stats["savings_percent"] > 0
 
     def test_significant_savings(self, sample_code_map):
         """Test that savings are significant."""
@@ -312,7 +308,7 @@ class TestTokenStats:
         stats = renderer.get_token_stats()
 
         # Should save at least 30%
-        assert stats['savings_percent'] >= 30
+        assert stats["savings_percent"] >= 30
 
 
 class TestConvenienceFunction:
@@ -331,10 +327,7 @@ class TestConvenienceFunction:
     def test_render_with_options(self, sample_code_map):
         """Test convenience function with options."""
         output = render_skeleton_tree(
-            sample_code_map,
-            max_depth=2,
-            show_meta=False,
-            project_name="test-project"
+            sample_code_map, max_depth=2, show_meta=False, project_name="test-project"
         )
         assert "test-project/" in output
 
