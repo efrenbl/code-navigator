@@ -1,7 +1,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.8+-blue.svg" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License">
-  <img src="https://img.shields.io/badge/version-1.4.1-orange.svg" alt="Version 1.4.1">
+  <img src="https://img.shields.io/badge/version-2.0.0-orange.svg" alt="Version 2.0.0">
   <img src="https://github.com/efrenbl/claude-code-navigator/actions/workflows/ci.yml/badge.svg" alt="CI Status">
 </p>
 
@@ -120,14 +120,36 @@ This tool integrates seamlessly with Claude Code. Install the skill and let Clau
 
 ### Installation as Claude Code Skill
 
+This project follows the **SKILL.md standard** for maximum compatibility with Claude Code and other agent ecosystems.
+
 ```bash
+# Option 1: Copy skill folder directly (recommended)
+# For a specific project
+cp -r skills/code-map-navigator .claude/skills/
+
+# For all your projects (personal)
+cp -r skills/code-map-navigator ~/.claude/skills/
+
+# Option 2: Use the packaged .skill file
 # For a specific project
 mkdir -p .claude/skills
-unzip codenav.skill -d .claude/skills/
+unzip code-map-navigator.skill -d .claude/skills/
 
 # For all your projects (personal)
 mkdir -p ~/.claude/skills
-unzip codenav.skill -d ~/.claude/skills/
+unzip code-map-navigator.skill -d ~/.claude/skills/
+```
+
+**Skill Structure (SKILL.md Standard):**
+```
+skills/code-map-navigator/
+├── SKILL.md           # Main skill definition with YAML frontmatter
+├── references/        # On-demand documentation
+│   ├── api-reference.md
+│   ├── cli-usage.md
+│   └── ...
+├── scripts/           # Executable scripts
+└── assets/            # Templates and resources
 ```
 
 ### Automatic Activation
@@ -571,7 +593,15 @@ pip install -e .
 
 ### Option 4: As Claude Code Skill
 
-Copy the `codenav.skill` file to your Claude Code skills directory.
+Copy the skill folder to your Claude Code skills directory:
+
+```bash
+# Copy skill folder (SKILL.md standard)
+cp -r skills/code-map-navigator ~/.claude/skills/
+
+# Or use the packaged .skill file
+unzip code-map-navigator.skill -d ~/.claude/skills/
+```
 
 ### Requirements
 

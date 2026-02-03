@@ -24,21 +24,21 @@ import os
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from fnmatch import fnmatch
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 
 class ResolveStrategy(Enum):
     """Enumeration of resolution strategies used."""
-    EXACT = "exact"              # Direct path match
-    RELATIVE = "relative"        # ./foo, ../bar
-    ALIAS = "alias"              # @/foo, ~/bar, #components
-    INDEX = "index"              # Implicit index file
-    SUFFIX = "suffix"            # Partial path match
-    MODULE = "module"            # Go/Python module prefix
-    PACKAGE = "package"          # node_modules, Python package
-    NOT_FOUND = "not_found"      # Resolution failed
+
+    EXACT = "exact"  # Direct path match
+    RELATIVE = "relative"  # ./foo, ../bar
+    ALIAS = "alias"  # @/foo, ~/bar, #components
+    INDEX = "index"  # Implicit index file
+    SUFFIX = "suffix"  # Partial path match
+    MODULE = "module"  # Go/Python module prefix
+    PACKAGE = "package"  # node_modules, Python package
+    NOT_FOUND = "not_found"  # Resolution failed
 
 
 @dataclass
@@ -52,6 +52,7 @@ class ResolveResult:
         original_import: The original import string.
         confidence: 0.0-1.0 indicating resolution confidence.
     """
+
     path: Optional[str]
     strategy: ResolveStrategy
     candidates: List[str] = field(default_factory=list)
@@ -75,6 +76,7 @@ class AliasConfig:
         prefix: Part before the wildcard.
         suffix: Part after the wildcard.
     """
+
     pattern: str
     targets: List[str]
     is_wildcard: bool = False
@@ -87,7 +89,7 @@ class AliasConfig:
             self.is_wildcard = True
             idx = self.pattern.index("*")
             self.prefix = self.pattern[:idx]
-            self.suffix = self.pattern[idx + 1:]
+            self.suffix = self.pattern[idx + 1 :]
         else:
             self.prefix = self.pattern
 
@@ -112,9 +114,9 @@ class AliasConfig:
             return None
 
         # Extract wildcard portion
-        wildcard_part = import_path[len(self.prefix):]
+        wildcard_part = import_path[len(self.prefix) :]
         if self.suffix:
-            wildcard_part = wildcard_part[:-len(self.suffix)]
+            wildcard_part = wildcard_part[: -len(self.suffix)]
 
         return wildcard_part
 
@@ -131,7 +133,7 @@ class AliasConfig:
         for target in self.targets:
             if "*" in target:
                 idx = target.index("*")
-                resolved = target[:idx] + wildcard_part + target[idx + 1:]
+                resolved = target[:idx] + wildcard_part + target[idx + 1 :]
             else:
                 resolved = target + wildcard_part if wildcard_part else target
             results.append(resolved)
@@ -197,8 +199,19 @@ class ImportResolver:
 
     # Directories to skip
     IGNORED_DIRS = {
-        "node_modules", "__pycache__", ".git", ".svn", "venv", "env",
-        ".venv", "dist", "build", ".next", "coverage", "vendor", "target",
+        "node_modules",
+        "__pycache__",
+        ".git",
+        ".svn",
+        "venv",
+        "env",
+        ".venv",
+        "dist",
+        "build",
+        ".next",
+        "coverage",
+        "vendor",
+        "target",
     }
 
     def __init__(
@@ -254,7 +267,11 @@ class ImportResolver:
         resolved_targets = []
         for target in targets:
             if self.base_url and not os.path.isabs(target) and not target.startswith("."):
-                target = os.path.join(self.base_url, target)
+                # Only join if base_url is not "." (current dir)
+                if self.base_url != ".":
+                    target = os.path.join(self.base_url, target)
+            # Normalize: remove leading "./" and use forward slashes
+            target = target.lstrip("./").replace("\\", "/")
             resolved_targets.append(target)
 
         self.aliases.append(AliasConfig(pattern=pattern, targets=resolved_targets))
@@ -320,9 +337,9 @@ class ImportResolver:
             # Read and parse JSON (with comment stripping)
             content = config_path.read_text(encoding="utf-8")
             # Remove single-line comments
-            content = re.sub(r'//.*?$', '', content, flags=re.MULTILINE)
+            content = re.sub(r"//.*?$", "", content, flags=re.MULTILINE)
             # Remove multi-line comments
-            content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+            content = re.sub(r"/\*.*?\*/", "", content, flags=re.DOTALL)
             config = json.loads(content)
         except (json.JSONDecodeError, OSError):
             return {}, ""
@@ -377,10 +394,12 @@ class ImportResolver:
             # Try to import tomllib (Python 3.11+) or toml
             try:
                 import tomllib
+
                 data = tomllib.loads(content)
             except ImportError:
                 try:
                     import toml
+
                     data = toml.loads(content)
                 except ImportError:
                     # Fallback: regex parsing for simple cases
@@ -438,11 +457,11 @@ class ImportResolver:
             self, for method chaining.
         """
         self.file_index = {
-            "exact": set(),       # All file paths
-            "no_ext": {},         # path without extension -> paths
-            "suffix": {},         # path suffix -> paths
-            "dir": {},            # directory -> files
-            "basename": {},       # filename without dir -> paths
+            "exact": set(),  # All file paths
+            "no_ext": {},  # path without extension -> paths
+            "suffix": {},  # path suffix -> paths
+            "dir": {},  # directory -> files
+            "basename": {},  # filename without dir -> paths
         }
 
         # Determine extensions to look for
@@ -470,13 +489,15 @@ class ImportResolver:
                     continue
 
                 full_path = Path(dirpath) / filename
-                rel_path = str(full_path.relative_to(self.root))
+                # Normalize to forward slashes for cross-platform consistency
+                rel_path = str(full_path.relative_to(self.root)).replace("\\", "/")
 
                 # Index by exact path
                 self.file_index["exact"].add(rel_path)
 
                 # Index by path without extension
-                no_ext = str(Path(rel_path).with_suffix(""))
+                # Normalize to forward slashes for cross-platform consistency
+                no_ext = str(Path(rel_path).with_suffix("")).replace("\\", "/")
                 if no_ext not in self.file_index["no_ext"]:
                     self.file_index["no_ext"][no_ext] = set()
                 self.file_index["no_ext"][no_ext].add(rel_path)
@@ -487,8 +508,8 @@ class ImportResolver:
                     self.file_index["basename"][basename] = set()
                 self.file_index["basename"][basename].add(rel_path)
 
-                # Index by directory
-                dir_path = str(Path(rel_path).parent)
+                # Index by directory (normalize to forward slashes)
+                dir_path = str(Path(rel_path).parent).replace("\\", "/")
                 if dir_path not in self.file_index["dir"]:
                     self.file_index["dir"][dir_path] = set()
                 self.file_index["dir"][dir_path].add(rel_path)
@@ -496,13 +517,14 @@ class ImportResolver:
                 # Index by all suffixes
                 parts = Path(rel_path).parts
                 for i in range(1, len(parts)):
-                    suffix = str(Path(*parts[i:]))
+                    # Normalize to forward slashes for cross-platform consistency
+                    suffix = str(Path(*parts[i:])).replace("\\", "/")
                     if suffix not in self.file_index["suffix"]:
                         self.file_index["suffix"][suffix] = set()
                     self.file_index["suffix"][suffix].add(rel_path)
 
-                    # Also without extension
-                    suffix_no_ext = str(Path(*parts[i:]).with_suffix(""))
+                    # Also without extension (normalize to forward slashes)
+                    suffix_no_ext = str(Path(*parts[i:]).with_suffix("")).replace("\\", "/")
                     if suffix_no_ext not in self.file_index["suffix"]:
                         self.file_index["suffix"][suffix_no_ext] = set()
                     self.file_index["suffix"][suffix_no_ext].add(rel_path)
@@ -605,7 +627,7 @@ class ImportResolver:
 
         # Strategy 3: Module prefix (e.g., "mypackage/utils" for Go/Python)
         if self.module_name and import_string.startswith(self.module_name):
-            rest = import_string[len(self.module_name):].lstrip("/.")
+            rest = import_string[len(self.module_name) :].lstrip("/.")
             result = self._try_resolve_path(rest, language)
             if result.found:
                 result.strategy = ResolveStrategy.MODULE
@@ -641,9 +663,14 @@ class ImportResolver:
         """Detect language from file extension."""
         ext = Path(file_path).suffix.lower()
         mapping = {
-            ".ts": "typescript", ".tsx": "typescript", ".d.ts": "typescript",
-            ".js": "javascript", ".jsx": "javascript", ".mjs": "javascript",
-            ".py": "python", ".pyi": "python",
+            ".ts": "typescript",
+            ".tsx": "typescript",
+            ".d.ts": "typescript",
+            ".js": "javascript",
+            ".jsx": "javascript",
+            ".mjs": "javascript",
+            ".py": "python",
+            ".pyi": "python",
             ".go": "go",
             ".rs": "rust",
             ".rb": "ruby",
@@ -672,7 +699,7 @@ class ImportResolver:
         # Go: module/package/file -> package/file
         if language == "go" and self.module_name:
             if imp.startswith(self.module_name + "/"):
-                imp = imp[len(self.module_name) + 1:]
+                imp = imp[len(self.module_name) + 1 :]
 
         return imp
 
@@ -693,15 +720,17 @@ class ImportResolver:
         for _ in range(levels):
             target_dir = target_dir.parent
 
-        # Build candidate path
+        # Build candidate path (normalize to forward slashes for cross-platform)
         if str(target_dir) == ".":
             candidate = rest
         else:
-            candidate = str(target_dir / rest)
+            candidate = str(target_dir / rest).replace("\\", "/")
 
         result = self._try_resolve_path(candidate, language)
         if result.found:
-            result.strategy = ResolveStrategy.RELATIVE
+            # Only set RELATIVE strategy if it wasn't resolved via INDEX
+            if result.strategy != ResolveStrategy.INDEX:
+                result.strategy = ResolveStrategy.RELATIVE
         return result
 
     def _try_resolve_path(self, path: str, language: str) -> ResolveResult:
@@ -743,7 +772,8 @@ class ImportResolver:
 
         # Try index files (path is a directory)
         for index_file in index_files:
-            candidate = str(Path(path) / index_file)
+            # Normalize to forward slashes for cross-platform consistency
+            candidate = str(Path(path) / index_file).replace("\\", "/")
             candidates.append(candidate)
             if candidate in self.file_index["exact"]:
                 return ResolveResult(
@@ -778,7 +808,8 @@ class ImportResolver:
 
         # Try __init__.py for Python packages
         if language == "python":
-            init_candidate = str(Path(normalized) / "__init__.py")
+            # Normalize to forward slashes for cross-platform consistency
+            init_candidate = str(Path(normalized) / "__init__.py").replace("\\", "/")
             candidates.append(init_candidate)
             if init_candidate in self.file_index["suffix"]:
                 matches = self.file_index["suffix"][init_candidate]
@@ -811,10 +842,7 @@ class ImportResolver:
         Returns:
             Dict mapping import strings to ResolveResults.
         """
-        return {
-            imp: self.resolve(source_file, imp, language)
-            for imp in imports
-        }
+        return {imp: self.resolve(source_file, imp, language) for imp in imports}
 
 
 # Convenience function for simple use cases

@@ -61,6 +61,7 @@ from .watcher import CodenavWatcher
 # Optional dependency: networkx for DependencyGraph
 try:
     from .dependency_graph import DependencyGraph, FileNode, analyze_repository
+
     HAS_NETWORKX = True
 except ImportError:
     DependencyGraph = None  # type: ignore
@@ -70,18 +71,18 @@ except ImportError:
 
 # Import resolver (always available - no external dependencies)
 from .import_resolver import (
+    AliasConfig,
     ImportResolver,
     ResolveResult,
     ResolveStrategy,
-    AliasConfig,
     resolve_import_path,
 )
 
 # Token-efficient rendering (always available - no external dependencies)
 from .token_efficient_renderer import (
-    TokenEfficientRenderer,
     FileMicroMeta,
     HubLevel,
+    TokenEfficientRenderer,
     render_skeleton_tree,
 )
 
@@ -93,12 +94,16 @@ try:
         analyze_with_ast_grep,
         is_ast_grep_available,
     )
+
     HAS_AST_GREP = is_ast_grep_available()
 except ImportError:
     AstGrepAnalyzer = None  # type: ignore
     AstGrepSymbol = None  # type: ignore
     analyze_with_ast_grep = None  # type: ignore
-    is_ast_grep_available = lambda: False  # type: ignore
+
+    def is_ast_grep_available():
+        return False  # type: ignore
+
     HAS_AST_GREP = False
 
 __version__ = "2.0.0"

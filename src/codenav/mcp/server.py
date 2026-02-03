@@ -27,41 +27,36 @@ try:
     from mcp.server import Server
     from mcp.server.stdio import stdio_server
     from mcp.types import (
-        CallToolResult,
         GetPromptResult,
-        ListPromptsResult,
-        ListResourcesResult,
-        ListToolsResult,
         Prompt,
         PromptArgument,
         PromptMessage,
-        ReadResourceResult,
         Resource,
-        ResourceContents,
         TextContent,
-        TextResourceContents,
         Tool,
     )
+
     HAS_MCP = True
 except ImportError:
     HAS_MCP = False
-    Server = None
+    Server = None  # type: ignore[misc, assignment]
 
 # Codenav imports
-from .. import __version__
 from ..code_navigator import CodeNavigator
 from ..code_search import CodeSearcher
 from ..line_reader import LineReader
 
 # Optional imports
 try:
-    from ..dependency_graph import DependencyGraph
+    from ..dependency_graph import DependencyGraph  # noqa: F401
+
     HAS_GRAPH = True
 except ImportError:
     HAS_GRAPH = False
 
 try:
     from ..token_efficient_renderer import TokenEfficientRenderer
+
     HAS_RENDERER = True
 except ImportError:
     HAS_RENDERER = False
@@ -88,26 +83,26 @@ RETURNS: A token-efficient summary showing file tree with inline metadata about 
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Root directory to scan (absolute or relative path)"
+                    "description": "Root directory to scan (absolute or relative path)",
                 },
                 "ignore_patterns": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Glob patterns to ignore (e.g., ['*.test.py', 'vendor/'])"
+                    "description": "Glob patterns to ignore (e.g., ['*.test.py', 'vendor/'])",
                 },
                 "git_only": {
                     "type": "boolean",
                     "description": "Only scan files tracked by git",
-                    "default": False
+                    "default": False,
                 },
                 "max_depth": {
                     "type": "integer",
                     "description": "Maximum directory depth to display (0=unlimited)",
-                    "default": 0
-                }
+                    "default": 0,
+                },
             },
-            "required": ["path"]
-        }
+            "required": ["path"],
+        },
     },
     {
         "name": "codenav_search",
@@ -124,30 +119,30 @@ RETURNS: Compact list of matching symbols with file:line locations and brief con
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Search query (name, pattern, or regex)"
+                    "description": "Search query (name, pattern, or regex)",
                 },
                 "symbol_type": {
                     "type": "string",
                     "enum": ["function", "class", "method", "variable", "any"],
                     "description": "Filter by symbol type",
-                    "default": "any"
+                    "default": "any",
                 },
                 "file_pattern": {
                     "type": "string",
-                    "description": "Filter by file glob pattern (e.g., '*.py', 'src/**/*.ts')"
+                    "description": "Filter by file glob pattern (e.g., '*.py', 'src/**/*.ts')",
                 },
                 "limit": {
                     "type": "integer",
                     "description": "Maximum results to return",
-                    "default": 20
+                    "default": 20,
                 },
                 "path": {
                     "type": "string",
-                    "description": "Root directory (uses current dir if not specified)"
-                }
+                    "description": "Root directory (uses current dir if not specified)",
+                },
             },
-            "required": ["query"]
-        }
+            "required": ["query"],
+        },
     },
     {
         "name": "codenav_read",
@@ -162,26 +157,17 @@ RETURNS: The requested lines with line numbers, optimized for code review.""",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "file_path": {
-                    "type": "string",
-                    "description": "Path to the file to read"
-                },
-                "start_line": {
-                    "type": "integer",
-                    "description": "First line to read (1-indexed)"
-                },
-                "end_line": {
-                    "type": "integer",
-                    "description": "Last line to read (inclusive)"
-                },
+                "file_path": {"type": "string", "description": "Path to the file to read"},
+                "start_line": {"type": "integer", "description": "First line to read (1-indexed)"},
+                "end_line": {"type": "integer", "description": "Last line to read (inclusive)"},
                 "context": {
                     "type": "integer",
                     "description": "Additional lines before/after the range",
-                    "default": 0
-                }
+                    "default": 0,
+                },
             },
-            "required": ["file_path", "start_line", "end_line"]
-        }
+            "required": ["file_path", "start_line", "end_line"],
+        },
     },
     {
         "name": "codenav_get_hubs",
@@ -196,23 +182,20 @@ RETURNS: Ranked list of hub files with import counts and brief description of th
         "inputSchema": {
             "type": "object",
             "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Root directory to analyze"
-                },
+                "path": {"type": "string", "description": "Root directory to analyze"},
                 "top_n": {
                     "type": "integer",
                     "description": "Number of top hubs to return",
-                    "default": 10
+                    "default": 10,
                 },
                 "min_imports": {
                     "type": "integer",
                     "description": "Minimum import count to be considered a hub",
-                    "default": 3
-                }
+                    "default": 3,
+                },
             },
-            "required": ["path"]
-        }
+            "required": ["path"],
+        },
     },
     {
         "name": "codenav_get_dependencies",
@@ -229,26 +212,26 @@ RETURNS: Import/export relationships in a compact format showing dependencies.""
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Root directory or specific file to analyze"
+                    "description": "Root directory or specific file to analyze",
                 },
                 "file": {
                     "type": "string",
-                    "description": "Specific file to get dependencies for (optional)"
+                    "description": "Specific file to get dependencies for (optional)",
                 },
                 "direction": {
                     "type": "string",
                     "enum": ["imports", "imported_by", "both"],
                     "description": "Direction of dependencies to show",
-                    "default": "both"
+                    "default": "both",
                 },
                 "depth": {
                     "type": "integer",
                     "description": "How many levels deep to traverse",
-                    "default": 1
-                }
+                    "default": 1,
+                },
             },
-            "required": ["path"]
-        }
+            "required": ["path"],
+        },
     },
     {
         "name": "codenav_get_structure",
@@ -263,18 +246,15 @@ RETURNS: Hierarchical list of symbols with types, line numbers, and signatures."
         "inputSchema": {
             "type": "object",
             "properties": {
-                "file_path": {
-                    "type": "string",
-                    "description": "Path to the file to analyze"
-                },
+                "file_path": {"type": "string", "description": "Path to the file to analyze"},
                 "include_private": {
                     "type": "boolean",
                     "description": "Include private symbols (starting with _)",
-                    "default": False
-                }
+                    "default": False,
+                },
             },
-            "required": ["file_path"]
-        }
+            "required": ["file_path"],
+        },
     },
 ]
 
@@ -282,6 +262,7 @@ RETURNS: Hierarchical list of symbols with types, line numbers, and signatures."
 # ==============================================================================
 # TOOL IMPLEMENTATIONS
 # ==============================================================================
+
 
 class CodenavToolHandler:
     """Handles execution of Codenav MCP tools."""
@@ -375,6 +356,7 @@ class CodenavToolHandler:
         # Filter by file pattern if specified
         if file_pattern:
             import fnmatch
+
             results = [r for r in results if fnmatch.fnmatch(r.file, file_pattern)]
 
         # Format results compactly
@@ -535,12 +517,14 @@ class CodenavToolHandler:
         hubs = []
         for file_path, count in import_counts.items():
             if count >= min_imports:
-                hubs.append({
-                    "file": file_path,
-                    "imports": count,
-                    "score": count,
-                    "symbols": file_symbols.get(file_path, []),
-                })
+                hubs.append(
+                    {
+                        "file": file_path,
+                        "imports": count,
+                        "score": count,
+                        "symbols": file_symbols.get(file_path, []),
+                    }
+                )
 
         return hubs
 
@@ -618,12 +602,16 @@ class CodenavToolHandler:
         if classes:
             lines.append("## Classes")
             for c in classes:
-                lines.append(f"- `{c['name']}` (L{c.get('start_line', '?')}-{c.get('end_line', '?')})")
+                lines.append(
+                    f"- `{c['name']}` (L{c.get('start_line', '?')}-{c.get('end_line', '?')})"
+                )
 
         if functions:
             lines.append("\n## Functions")
             for f in functions:
-                lines.append(f"- `{f['name']}` (L{f.get('start_line', '?')}-{f.get('end_line', '?')})")
+                lines.append(
+                    f"- `{f['name']}` (L{f.get('start_line', '?')}-{f.get('end_line', '?')})"
+                )
 
         if methods:
             lines.append(f"\n## Methods ({len(methods)})")
@@ -639,12 +627,11 @@ class CodenavToolHandler:
 # MCP SERVER
 # ==============================================================================
 
+
 def create_server(workspace_root: Optional[str] = None) -> "Server":
     """Create and configure the MCP server."""
     if not HAS_MCP:
-        raise ImportError(
-            "MCP SDK not installed. Install with: pip install mcp"
-        )
+        raise ImportError("MCP SDK not installed. Install with: pip install mcp")
 
     server = Server("codenav")
     handler = CodenavToolHandler(workspace_root)
@@ -713,10 +700,7 @@ def create_server(workspace_root: Optional[str] = None) -> "Server":
         elif uri == "codenav://dependencies":
             code_map = handler._get_code_map(handler.workspace_root)
             # Extract just the dependencies
-            deps = {
-                f["path"]: f.get("imports", [])
-                for f in code_map.get("files", [])
-            }
+            deps = {f["path"]: f.get("imports", []) for f in code_map.get("files", [])}
             return json.dumps(deps, indent=2)
         else:
             return f"Unknown resource: {uri}"
@@ -770,7 +754,7 @@ def create_server(workspace_root: Optional[str] = None) -> "Server":
    - Overall structure and organization
    - Key modules and their responsibilities
    - Coupling between components
-   - Potential areas for improvement"""
+   - Potential areas for improvement""",
                         ),
                     )
                 ],
@@ -787,7 +771,7 @@ def create_server(workspace_root: Optional[str] = None) -> "Server":
 1. Scan the codebase using codenav_scan
 2. Search for common entry point patterns (main, cli, app)
 3. Read the relevant files to understand how the application starts
-4. Provide a summary of how to run and use the application"""
+4. Provide a summary of how to run and use the application""",
                         ),
                     )
                 ],

@@ -33,20 +33,20 @@ Example:
 """
 
 import json
-import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 
 class HubLevel(Enum):
     """Hub importance levels based on import count."""
-    NONE = 0      # 0-1 importers
-    LOW = 1       # 2 importers
-    MEDIUM = 2    # 3-4 importers
-    HIGH = 3      # 5+ importers
+
+    NONE = 0  # 0-1 importers
+    LOW = 1  # 2 importers
+    MEDIUM = 2  # 3-4 importers
+    HIGH = 3  # 5+ importers
     CRITICAL = 4  # 8+ importers
 
 
@@ -64,6 +64,7 @@ class FileMicroMeta:
         lines: Total lines of code.
         has_tests: Whether file appears to be a test file.
     """
+
     path: str
     classes: List[str] = field(default_factory=list)
     functions: List[str] = field(default_factory=list)
@@ -109,7 +110,7 @@ class FileMicroMeta:
                     parts.append(f"C:{cls}")
 
         # Standalone functions (not methods)
-        standalone_funcs = [f for f in self.functions if not f.startswith('_')][:3]
+        standalone_funcs = [f for f in self.functions if not f.startswith("_")][:3]
         if standalone_funcs and not self.classes:
             parts.append(f"F:{','.join(standalone_funcs)}")
         elif standalone_funcs and len(parts) < 2:
@@ -140,6 +141,7 @@ class FileMicroMeta:
 @dataclass
 class TreeNode:
     """Node in the file tree structure."""
+
     name: str
     is_file: bool = False
     meta: Optional[FileMicroMeta] = None
@@ -231,45 +233,45 @@ class TokenEfficientRenderer:
         Returns:
             Initialized TokenEfficientRenderer.
         """
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, encoding="utf-8") as f:
             code_map = json.load(f)
         return cls(code_map, **kwargs)
 
     def _parse_code_map(self) -> None:
         """Parse code map into FileMicroMeta objects."""
-        files_data = self.code_map.get('files', {})
+        files_data = self.code_map.get("files", {})
 
         for file_path, file_info in files_data.items():
-            symbols = file_info.get('symbols', [])
+            symbols = file_info.get("symbols", [])
 
             classes = []
             functions = []
             methods = defaultdict(list)
 
             for sym in symbols:
-                sym_type = sym.get('type', '')
-                sym_name = sym.get('name', '')
-                parent = sym.get('parent')
+                sym_type = sym.get("type", "")
+                sym_name = sym.get("name", "")
+                parent = sym.get("parent")
 
-                if sym_type == 'class':
+                if sym_type == "class":
                     classes.append(sym_name)
-                elif sym_type == 'function':
+                elif sym_type == "function":
                     functions.append(sym_name)
-                elif sym_type == 'method' and parent:
+                elif sym_type == "method" and parent:
                     methods[parent].append(sym_name)
 
             # Calculate approximate lines
             lines = 0
             for sym in symbols:
-                sym_lines = sym.get('lines', [0, 0])
+                sym_lines = sym.get("lines", [0, 0])
                 if isinstance(sym_lines, list) and len(sym_lines) >= 2:
                     lines = max(lines, sym_lines[1])
 
             # Detect test files
             has_tests = (
-                'test' in file_path.lower() or
-                file_path.startswith('tests/') or
-                any(f.startswith('test_') for f in functions)
+                "test" in file_path.lower()
+                or file_path.startswith("tests/")
+                or any(f.startswith("test_") for f in functions)
             )
 
             self.files[file_path] = FileMicroMeta(
@@ -351,7 +353,7 @@ class TokenEfficientRenderer:
         lines = []
 
         # Header
-        name = project_name or self.code_map.get('root', 'project').split('/')[-1]
+        name = project_name or self.code_map.get("root", "project").split("/")[-1]
         lines.append(f"{name}/")
 
         # Render tree
@@ -371,10 +373,12 @@ class TokenEfficientRenderer:
             lines.append("")
             lines.append("═══ Summary ═══")
             stats = self._get_summary_stats()
-            lines.append(f"{stats['files']} files · {stats['symbols']} symbols · {stats['hubs']} hubs")
+            lines.append(
+                f"{stats['files']} files · {stats['symbols']} symbols · {stats['hubs']} hubs"
+            )
 
-            if stats['top_hubs']:
-                hub_strs = [f"{h[0]}({h[1]}←)" for h in stats['top_hubs'][:5]]
+            if stats["top_hubs"]:
+                hub_strs = [f"{h[0]}({h[1]}←)" for h in stats["top_hubs"][:5]]
                 lines.append(f"Top Hubs: {', '.join(hub_strs)}")
 
         return "\n".join(lines)
@@ -407,7 +411,7 @@ class TokenEfficientRenderer:
         all_items = dirs + files
 
         for i, (name, child) in enumerate(all_items):
-            is_last_item = (i == len(all_items) - 1)
+            is_last_item = i == len(all_items) - 1
             connector = self.ELBOW if is_last_item else self.TEE
             new_prefix = prefix + (self.BLANK if is_last_item else self.PIPE_PREFIX)
 
@@ -461,10 +465,7 @@ class TokenEfficientRenderer:
     def _get_summary_stats(self) -> Dict[str, Any]:
         """Calculate summary statistics."""
         total_files = len(self.files)
-        total_symbols = sum(
-            len(m.classes) + len(m.functions)
-            for m in self.files.values()
-        )
+        total_symbols = sum(len(m.classes) + len(m.functions) for m in self.files.values())
 
         # Find hubs
         hubs = [
@@ -475,10 +476,10 @@ class TokenEfficientRenderer:
         hubs.sort(key=lambda x: x[1], reverse=True)
 
         return {
-            'files': total_files,
-            'symbols': total_symbols,
-            'hubs': len(hubs),
-            'top_hubs': hubs[:10],
+            "files": total_files,
+            "symbols": total_symbols,
+            "hubs": len(hubs),
+            "top_hubs": hubs[:10],
         }
 
     def render_dependency_flow(
@@ -508,8 +509,8 @@ class TokenEfficientRenderer:
         by_dir = defaultdict(list)
         for path, meta in self.files.items():
             dir_name = str(Path(path).parent)
-            if dir_name == '.':
-                dir_name = 'root'
+            if dir_name == ".":
+                dir_name = "root"
             by_dir[dir_name].append((path, meta))
 
         # Show each directory's dependencies
@@ -549,7 +550,7 @@ class TokenEfficientRenderer:
             lines.append("")
 
         # Hub summary
-        hubs = self._get_summary_stats()['top_hubs']
+        hubs = self._get_summary_stats()["top_hubs"]
         if hubs:
             lines.append("─" * 40)
             hub_strs = [f"{h[0]}({h[1]}←)" for h in hubs[:6]]
@@ -590,7 +591,7 @@ class TokenEfficientRenderer:
                         classes.append(f"{short_path}.{cls}")
 
                 for func in meta.functions[:3]:
-                    if not func.startswith('_'):
+                    if not func.startswith("_"):
                         functions.append(f"{short_path}.{func}")
 
             if classes:
@@ -620,7 +621,7 @@ class TokenEfficientRenderer:
                         symbols.append(f"C:{cls}")
 
                 for func in meta.functions[:2]:
-                    if not func.startswith('_'):
+                    if not func.startswith("_"):
                         symbols.append(f"F:{func}")
 
                 if symbols:
@@ -641,7 +642,7 @@ class TokenEfficientRenderer:
         json_chars = len(json_output)
 
         # Compact JSON
-        compact_json = json.dumps(self.code_map, separators=(',', ':'))
+        compact_json = json.dumps(self.code_map, separators=(",", ":"))
         compact_chars = len(compact_json)
 
         # Tree output
@@ -659,18 +660,22 @@ class TokenEfficientRenderer:
         index_tokens = index_chars // 4
 
         return {
-            'json_chars': json_chars,
-            'json_tokens_approx': json_tokens,
-            'compact_json_chars': compact_chars,
-            'compact_json_tokens_approx': compact_tokens,
-            'tree_chars': tree_chars,
-            'tree_tokens_approx': tree_tokens,
-            'index_chars': index_chars,
-            'index_tokens_approx': index_tokens,
-            'savings_vs_json': json_chars - tree_chars,
-            'savings_percent': ((json_chars - tree_chars) / json_chars) * 100 if json_chars > 0 else 0,
-            'savings_vs_compact': compact_chars - tree_chars,
-            'compact_savings_percent': ((compact_chars - tree_chars) / compact_chars) * 100 if compact_chars > 0 else 0,
+            "json_chars": json_chars,
+            "json_tokens_approx": json_tokens,
+            "compact_json_chars": compact_chars,
+            "compact_json_tokens_approx": compact_tokens,
+            "tree_chars": tree_chars,
+            "tree_tokens_approx": tree_tokens,
+            "index_chars": index_chars,
+            "index_tokens_approx": index_tokens,
+            "savings_vs_json": json_chars - tree_chars,
+            "savings_percent": (
+                ((json_chars - tree_chars) / json_chars) * 100 if json_chars > 0 else 0
+            ),
+            "savings_vs_compact": compact_chars - tree_chars,
+            "compact_savings_percent": (
+                ((compact_chars - tree_chars) / compact_chars) * 100 if compact_chars > 0 else 0
+            ),
         }
 
 

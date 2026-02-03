@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple
 # Check for ast-grep availability
 try:
     from ast_grep_py import SgRoot
+
     HAS_AST_GREP = True
 except ImportError:
     HAS_AST_GREP = False
@@ -41,6 +42,7 @@ class AstGrepSymbol:
         parent: Parent class name for methods.
         meta_vars: Captured meta-variables from pattern.
     """
+
     name: str
     type: str
     file_path: str
@@ -338,11 +340,12 @@ class AstGrepAnalyzer:
 
         # Collect import-related patterns
         import_patterns = {
-            k: v for k, v in patterns.items()
+            k: v
+            for k, v in patterns.items()
             if "import" in k or k in ("require", "use", "include", "include_system")
         }
 
-        for pattern_type, pattern in import_patterns.items():
+        for _pattern_type, pattern in import_patterns.items():
             if isinstance(pattern, str):
                 matches = root_node.find_all(pattern=pattern)
                 for match in matches:
@@ -350,7 +353,7 @@ class AstGrepAnalyzer:
                     for var in ["MODULE", "PATH", "ITEMS"]:
                         node = match.get_match(var)
                         if node:
-                            text = node.text().strip('"\'')
+                            text = node.text().strip("\"'")
                             if text and text not in imports:
                                 imports.append(text)
                             break

@@ -295,7 +295,15 @@ claude-code-navigator/
 │       ├── __init__.py
 │       ├── code_navigator.py
 │       ├── code_search.py
-│       └── line_reader.py
+│       ├── line_reader.py
+│       ├── import_resolver.py
+│       └── mcp/                # MCP server implementation
+├── skills/                     # SKILL.md standard compliant
+│   └── code-map-navigator/
+│       ├── SKILL.md           # Skill definition (YAML + Markdown)
+│       ├── references/        # On-demand documentation
+│       ├── scripts/           # Executable scripts
+│       └── assets/            # Templates and resources
 ├── tests/
 ├── docs/
 ├── examples/
@@ -306,6 +314,15 @@ claude-code-navigator/
 ├── Makefile
 └── README.md
 ```
+
+### SKILL.md Standard
+
+This project follows the [SKILL.md standard](https://github.com/anthropics/skills) for agent skills:
+
+- **YAML frontmatter** with `name`, `description`, `license`, `allowed-tools`, `metadata`
+- **Markdown body** with workflow instructions and examples
+- **Progressive disclosure** via `references/` folder for on-demand documentation
+- **Folder name** matches `name` field in YAML (kebab-case)
 
 ## Questions?
 
