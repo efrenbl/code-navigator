@@ -496,7 +496,8 @@ class ImportResolver:
                 self.file_index["exact"].add(rel_path)
 
                 # Index by path without extension
-                no_ext = str(Path(rel_path).with_suffix(""))
+                # Normalize to forward slashes for cross-platform consistency
+                no_ext = str(Path(rel_path).with_suffix("")).replace("\\", "/")
                 if no_ext not in self.file_index["no_ext"]:
                     self.file_index["no_ext"][no_ext] = set()
                 self.file_index["no_ext"][no_ext].add(rel_path)
@@ -507,8 +508,8 @@ class ImportResolver:
                     self.file_index["basename"][basename] = set()
                 self.file_index["basename"][basename].add(rel_path)
 
-                # Index by directory
-                dir_path = str(Path(rel_path).parent)
+                # Index by directory (normalize to forward slashes)
+                dir_path = str(Path(rel_path).parent).replace("\\", "/")
                 if dir_path not in self.file_index["dir"]:
                     self.file_index["dir"][dir_path] = set()
                 self.file_index["dir"][dir_path].add(rel_path)
@@ -516,13 +517,14 @@ class ImportResolver:
                 # Index by all suffixes
                 parts = Path(rel_path).parts
                 for i in range(1, len(parts)):
-                    suffix = str(Path(*parts[i:]))
+                    # Normalize to forward slashes for cross-platform consistency
+                    suffix = str(Path(*parts[i:])).replace("\\", "/")
                     if suffix not in self.file_index["suffix"]:
                         self.file_index["suffix"][suffix] = set()
                     self.file_index["suffix"][suffix].add(rel_path)
 
-                    # Also without extension
-                    suffix_no_ext = str(Path(*parts[i:]).with_suffix(""))
+                    # Also without extension (normalize to forward slashes)
+                    suffix_no_ext = str(Path(*parts[i:]).with_suffix("")).replace("\\", "/")
                     if suffix_no_ext not in self.file_index["suffix"]:
                         self.file_index["suffix"][suffix_no_ext] = set()
                     self.file_index["suffix"][suffix_no_ext].add(rel_path)
@@ -718,11 +720,11 @@ class ImportResolver:
         for _ in range(levels):
             target_dir = target_dir.parent
 
-        # Build candidate path
+        # Build candidate path (normalize to forward slashes for cross-platform)
         if str(target_dir) == ".":
             candidate = rest
         else:
-            candidate = str(target_dir / rest)
+            candidate = str(target_dir / rest).replace("\\", "/")
 
         result = self._try_resolve_path(candidate, language)
         if result.found:
@@ -770,7 +772,8 @@ class ImportResolver:
 
         # Try index files (path is a directory)
         for index_file in index_files:
-            candidate = str(Path(path) / index_file)
+            # Normalize to forward slashes for cross-platform consistency
+            candidate = str(Path(path) / index_file).replace("\\", "/")
             candidates.append(candidate)
             if candidate in self.file_index["exact"]:
                 return ResolveResult(
@@ -805,7 +808,8 @@ class ImportResolver:
 
         # Try __init__.py for Python packages
         if language == "python":
-            init_candidate = str(Path(normalized) / "__init__.py")
+            # Normalize to forward slashes for cross-platform consistency
+            init_candidate = str(Path(normalized) / "__init__.py").replace("\\", "/")
             candidates.append(init_candidate)
             if init_candidate in self.file_index["suffix"]:
                 matches = self.file_index["suffix"][init_candidate]
