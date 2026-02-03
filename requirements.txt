@@ -1,0 +1,8 @@
+# Claude Code Navigator - Requirements
+# No external dependencies required! Uses only Python standard library.
+#
+# This file exists for compatibility with tools that expect requirements.txt
+# The package has zero runtime dependencies.
+#
+# For development dependencies, see dev-requirements.txt or install with:
+#   pip install -e ".[dev]"

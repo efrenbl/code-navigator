@@ -1,0 +1,190 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codenav"
+version = "2.0.0"
+description = "Token-efficient code navigation for large codebases - reduce token usage by 97%"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "Efren", email = "efren@example.com"}
+]
+maintainers = [
+    {name = "Efren", email = "efren@example.com"}
+]
+keywords = [
+    "claude",
+    "code-navigation",
+    "token-optimization",
+    "ast",
+    "code-search",
+    "developer-tools",
+    "ai-coding",
+    "codebase-indexing"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: Indexing",
+    "Topic :: Utilities",
+]
+
+# No external dependencies - uses only standard library
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+    "build>=1.0.0",
+    "twine>=4.0.0",
+]
+ast = [
+    "tree-sitter>=0.23.0",
+    "tree-sitter-javascript>=0.23.0",
+    "tree-sitter-typescript>=0.23.0",
+]
+graph = [
+    "networkx>=3.0",
+]
+fast = [
+    "ast-grep-py>=0.40.0",
+]
+mcp = [
+    "mcp>=1.0.0",
+]
+all = [
+    "tree-sitter>=0.23.0",
+    "tree-sitter-javascript>=0.23.0",
+    "tree-sitter-typescript>=0.23.0",
+    "networkx>=3.0",
+    "ast-grep-py>=0.40.0",
+    "mcp>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/efrenbl/claude-code-navigator"
+Documentation = "https://github.com/efrenbl/claude-code-navigator#readme"
+Repository = "https://github.com/efrenbl/claude-code-navigator.git"
+Issues = "https://github.com/efrenbl/claude-code-navigator/issues"
+Changelog = "https://github.com/efrenbl/claude-code-navigator/blob/main/CHANGELOG.md"
+
+[project.scripts]
+# Primary CLI (recommended)
+codenav = "codenav.cli:main"
+cnv = "codenav.cli:main"  # Short alias
+
+# MCP Server
+codenav-mcp = "codenav.mcp:main"
+
+# Legacy commands (deprecated, maintained for backward compatibility)
+code-nav = "codenav.code_navigator:main"
+code-search = "codenav.code_search:main"
+code-read = "codenav.line_reader:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+
+# Black configuration
+[tool.black]
+line-length = 100
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+# isort configuration
+[tool.isort]
+profile = "black"
+line_length = 100
+skip_gitignore = true
+known_first_party = ["codenav"]
+
+# pytest configuration
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+# mypy configuration
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+exclude = [
+    '^build/',
+    '^dist/',
+]
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["src/codenav"]
+branch = true
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+# Ruff configuration (replaces flake8 and isort)
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+]
+ignore = [
+    "E203",   # Whitespace before ':' (conflicts with black)
+    "E501",   # Line too long (handled by black)
+    "E722",   # Do not use bare 'except' (too strict for this codebase)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["codenav"]

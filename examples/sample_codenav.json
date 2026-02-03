@@ -1,0 +1,165 @@
+{
+  "version": "1.0",
+  "root": "/home/user/projects/example-app",
+  "generated_at": "2024-01-15T10:30:00.123456",
+  "stats": {
+    "files_processed": 5,
+    "symbols_found": 12,
+    "errors": 0
+  },
+  "files": {
+    "src/main.py": {
+      "hash": "a1b2c3d4e5f6",
+      "symbols": [
+        {
+          "name": "main",
+          "type": "function",
+          "lines": [15, 25],
+          "signature": "def main() -> None",
+          "docstring": "Main entry point for the application.",
+          "deps": ["setup", "run_server"],
+          "decorators": null
+        },
+        {
+          "name": "setup",
+          "type": "function",
+          "lines": [5, 12],
+          "signature": "def setup(config: dict) -> None",
+          "docstring": "Initialize application configuration.",
+          "deps": ["load_config"],
+          "decorators": null
+        }
+      ]
+    },
+    "src/api/handlers.py": {
+      "hash": "b2c3d4e5f6g7",
+      "symbols": [
+        {
+          "name": "UserHandler",
+          "type": "class",
+          "lines": [10, 85],
+          "signature": "class UserHandler(BaseHandler)",
+          "docstring": "Handle user-related HTTP requests.",
+          "decorators": null
+        },
+        {
+          "name": "__init__",
+          "type": "method",
+          "lines": [15, 22],
+          "signature": "def __init__(self, db: Database)",
+          "parent": "UserHandler",
+          "decorators": null
+        },
+        {
+          "name": "get",
+          "type": "method",
+          "lines": [25, 45],
+          "signature": "async def get(self, user_id: int) -> dict",
+          "docstring": "Get user by ID.",
+          "parent": "UserHandler",
+          "deps": ["validate_id", "fetch_user"],
+          "decorators": null
+        },
+        {
+          "name": "post",
+          "type": "method",
+          "lines": [50, 75],
+          "signature": "async def post(self, data: dict) -> dict",
+          "docstring": "Create a new user.",
+          "parent": "UserHandler",
+          "deps": ["validate_data", "create_user"],
+          "decorators": ["auth_required"]
+        }
+      ]
+    },
+    "src/services/payment.py": {
+      "hash": "c3d4e5f6g7h8",
+      "symbols": [
+        {
+          "name": "PaymentService",
+          "type": "class",
+          "lines": [8, 120],
+          "signature": "class PaymentService",
+          "docstring": "Handle payment processing.",
+          "decorators": null
+        },
+        {
+          "name": "process_payment",
+          "type": "method",
+          "lines": [25, 65],
+          "signature": "def process_payment(self, user_id: int, amount: Decimal) -> PaymentResult",
+          "docstring": "Process a payment for the given user.\n\nArgs:\n    user_id: The user's ID\n    amount: Payment amount...",
+          "parent": "PaymentService",
+          "deps": ["validate_amount", "charge_card", "send_receipt"],
+          "decorators": ["transaction"]
+        },
+        {
+          "name": "refund",
+          "type": "method",
+          "lines": [70, 95],
+          "signature": "def refund(self, payment_id: str) -> bool",
+          "docstring": "Process a refund.",
+          "parent": "PaymentService",
+          "deps": ["get_payment", "reverse_charge"],
+          "decorators": ["transaction"]
+        }
+      ]
+    },
+    "src/utils/validators.py": {
+      "hash": "d4e5f6g7h8i9",
+      "symbols": [
+        {
+          "name": "validate_email",
+          "type": "function",
+          "lines": [5, 15],
+          "signature": "def validate_email(email: str) -> bool",
+          "docstring": "Validate email format.",
+          "decorators": null
+        },
+        {
+          "name": "validate_amount",
+          "type": "function",
+          "lines": [20, 35],
+          "signature": "def validate_amount(amount: Decimal) -> bool",
+          "docstring": "Validate payment amount is positive and within limits.",
+          "decorators": null
+        }
+      ]
+    }
+  },
+  "index": {
+    "main": [
+      {"file": "src/main.py", "type": "function", "lines": [15, 25], "parent": null}
+    ],
+    "setup": [
+      {"file": "src/main.py", "type": "function", "lines": [5, 12], "parent": null}
+    ],
+    "userhandler": [
+      {"file": "src/api/handlers.py", "type": "class", "lines": [10, 85], "parent": null}
+    ],
+    "__init__": [
+      {"file": "src/api/handlers.py", "type": "method", "lines": [15, 22], "parent": "UserHandler"}
+    ],
+    "get": [
+      {"file": "src/api/handlers.py", "type": "method", "lines": [25, 45], "parent": "UserHandler"}
+    ],
+    "post": [
+      {"file": "src/api/handlers.py", "type": "method", "lines": [50, 75], "parent": "UserHandler"}
+    ],
+    "paymentservice": [
+      {"file": "src/services/payment.py", "type": "class", "lines": [8, 120], "parent": null}
+    ],
+    "process_payment": [
+      {"file": "src/services/payment.py", "type": "method", "lines": [25, 65], "parent": "PaymentService"}
+    ],
+    "refund": [
+      {"file": "src/services/payment.py", "type": "method", "lines": [70, 95], "parent": "PaymentService"}
+    ],
+    "validate_email": [
+      {"file": "src/utils/validators.py", "type": "function", "lines": [5, 15], "parent": null}
+    ],
+    "validate_amount": [
+      {"file": "src/utils/validators.py", "type": "function", "lines": [20, 35], "parent": null}
+    ]
+  }
+}

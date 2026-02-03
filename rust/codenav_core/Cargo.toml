@@ -1,0 +1,50 @@
+[package]
+name = "codenav_core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Efren <ing.efrenbl@gmail.com>"]
+description = "High-performance core algorithms for Claude Code Navigator"
+license = "MIT"
+readme = "README.md"
+
+[lib]
+name = "codenav_core"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# PyO3 for Python bindings
+pyo3 = { version = "0.21", features = ["extension-module"] }
+
+# Parallel processing
+rayon = "1.10"
+
+# Fast hash maps
+hashbrown = "0.14"
+rustc-hash = "1.1"
+
+# Graph algorithms
+petgraph = "0.6"
+
+# String interning for memory efficiency
+string-interner = "0.17"
+
+# SIMD string matching (optional, for import resolution)
+aho-corasick = "1.1"
+memchr = "2.7"
+
+[dev-dependencies]
+criterion = "0.5"
+
+[features]
+default = []
+# Enable this for benchmarking
+bench = []
+
+[[bench]]
+name = "pagerank_bench"
+harness = false
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3

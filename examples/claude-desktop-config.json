@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "codenav": {
+      "command": "python",
+      "args": ["-m", "codenav.mcp"],
+      "env": {
+        "CODENAV_WORKSPACE": "${workspaceFolder}"
+      }
+    }
+  }
+}

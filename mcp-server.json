@@ -1,0 +1,93 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/mcp/main/schema/server.json",
+  "name": "codenav",
+  "version": "2.0.0",
+  "description": "Token-efficient code navigation for large codebases - reduce token usage by 97%",
+  "author": "Efren",
+  "license": "MIT",
+  "repository": "https://github.com/efrenbl/claude-code-navigator",
+  "homepage": "https://github.com/efrenbl/claude-code-navigator",
+  "keywords": [
+    "code-navigation",
+    "token-optimization",
+    "codebase-indexing",
+    "code-search",
+    "dependency-analysis"
+  ],
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true
+  },
+  "installation": {
+    "pip": "pip install codenav",
+    "pipx": "pipx install codenav",
+    "uv": "uv pip install codenav"
+  },
+  "commands": {
+    "stdio": {
+      "command": "python",
+      "args": ["-m", "codenav.mcp"],
+      "env": {}
+    },
+    "sse": {
+      "command": "python",
+      "args": ["-m", "codenav.mcp", "--transport", "sse", "--port", "8765"],
+      "env": {}
+    }
+  },
+  "tools": [
+    {
+      "name": "codenav_scan",
+      "description": "Scan a codebase and generate a structural map with all symbols",
+      "category": "code-analysis"
+    },
+    {
+      "name": "codenav_search",
+      "description": "Search for symbols (functions, classes, methods) by name or pattern",
+      "category": "code-search"
+    },
+    {
+      "name": "codenav_read",
+      "description": "Read specific lines from a file with optional context",
+      "category": "file-reading"
+    },
+    {
+      "name": "codenav_get_hubs",
+      "description": "Identify architectural hub files - the most important files",
+      "category": "architecture"
+    },
+    {
+      "name": "codenav_get_dependencies",
+      "description": "Get the dependency graph for a file or project",
+      "category": "architecture"
+    },
+    {
+      "name": "codenav_get_structure",
+      "description": "Get the structure of a specific file showing all symbols",
+      "category": "file-reading"
+    }
+  ],
+  "resources": [
+    {
+      "uri": "codenav://code-map",
+      "name": "Code Map",
+      "description": "The current codebase structural map"
+    },
+    {
+      "uri": "codenav://dependencies",
+      "name": "Dependency Graph",
+      "description": "File dependency relationships"
+    }
+  ],
+  "prompts": [
+    {
+      "name": "analyze-architecture",
+      "description": "Analyze the architecture of a codebase"
+    },
+    {
+      "name": "find-entry-points",
+      "description": "Find the main entry points of an application"
+    }
+  ]
+}

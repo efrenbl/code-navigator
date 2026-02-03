@@ -1,0 +1,25 @@
+{
+  "$schema": "https://claude.ai/schemas/claude-code-settings.json",
+  "mcpServers": {
+    "codenav": {
+      "command": "python",
+      "args": ["-m", "codenav.mcp", "--workspace", "."],
+      "env": {}
+    }
+  },
+  "skills": {
+    "codenav": {
+      "enabled": true,
+      "autoActivate": true,
+      "triggers": [
+        "understand this codebase",
+        "find the function",
+        "search for",
+        "what files",
+        "show me the structure",
+        "architectural hub",
+        "dependency"
+      ]
+    }
+  }
+}
