@@ -39,6 +39,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+# Default limits for token-efficient rendering (configurable)
+DEFAULT_MAX_CLASSES = 2
+DEFAULT_MAX_METHODS_PER_CLASS = 3
+DEFAULT_MAX_FUNCTIONS = 3
+
 
 class HubLevel(Enum):
     """Hub importance levels based on import count."""
@@ -48,12 +53,6 @@ class HubLevel(Enum):
     MEDIUM = 2  # 3-4 importers
     HIGH = 3  # 5+ importers
     CRITICAL = 4  # 8+ importers
-
-
-# Default limits for token-efficient rendering (configurable)
-DEFAULT_MAX_CLASSES = 2
-DEFAULT_MAX_METHODS_PER_CLASS = 3
-DEFAULT_MAX_FUNCTIONS = 3
 
 
 @dataclass
