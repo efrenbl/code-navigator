@@ -70,19 +70,28 @@ Code Navigator creates a lightweight index of your codebase **locally**, enablin
 
 ## 🚀 Quick Start (< 2 minutes)
 
-### Installation
+### Recommended: npx skills (Auto-configures everything)
 
 ```bash
-# Using npx skills (recommended for AI coding assistants)
 npx skills add github:efrenbl/code-navigator
+```
 
-# Or install via pip
+This automatically:
+- Installs the Python package
+- Configures MCP server for Claude Code
+- Copies skill files to ~/.claude/skills/
+
+### Alternative: Interactive Script
+
+```bash
+curl -sL https://raw.githubusercontent.com/efrenbl/code-navigator/main/skills/code-navigator/scripts/install.sh | bash
+```
+
+### Advanced: Manual pip Installation
+
+```bash
 pip install code-navigator
-
-# Or clone and install locally
-git clone https://github.com/efrenbl/code-navigator.git
-cd code-navigator
-pip install -e .
+# Then manually configure MCP in ~/.claude/settings.json
 ```
 
 ### Generate Your Code Map
@@ -373,18 +382,6 @@ codenav completion zsh > ~/.zfunc/_codenav
 
 # Or source directly
 eval "$(codenav completion bash)"
-```
-
----
-
-### Legacy Commands
-
-For backward compatibility, the original commands are still available:
-
-```bash
-codenav scan /your/project         # Same as: codenav map /your/project
-code-search "UserService"      # Same as: codenav search "UserService"
-code-read src/api.py 45-60     # Same as: codenav read src/api.py 45-60
 ```
 
 ---

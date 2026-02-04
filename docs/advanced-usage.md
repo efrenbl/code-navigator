@@ -21,20 +21,20 @@ When changes span multiple files, use a systematic approach:
 
 ```bash
 # Find the main class
-code-search "UserService" --type class
+codenav search "UserService" --type class
 
 # Find related models
-code-search "User" --file "models/"
+codenav search "User" --file "models/"
 
 # Find all handlers
-code-search "handler" --type function --file "api/"
+codenav search "handler" --type function --file "api/"
 ```
 
 ### 2. Get Dependency Graph
 
 ```bash
 # See what UserService calls
-code-search --deps "UserService"
+codenav search --deps "UserService"
 
 # Output:
 # {
@@ -47,9 +47,9 @@ code-search --deps "UserService"
 
 ```bash
 # Read with minimal context
-code-read src/services/user.py 12-45 --symbol
-code-read src/models/user.py 5-30 --symbol
-code-read src/api/handlers.py 50-75 --symbol
+codenav read src/services/user.py 12-45 --symbol
+codenav read src/models/user.py 5-30 --symbol
+codenav read src/api/handlers.py 50-75 --symbol
 ```
 
 ### 4. Batch Reading (Python)
@@ -86,7 +86,7 @@ for file_path, symbols in by_file.items():
 
 ```bash
 # 1. Find all usages
-code-search --deps "old_function_name"
+codenav search --deps "old_function_name"
 
 # Output shows:
 # - Where it's defined
@@ -100,7 +100,7 @@ code-search --deps "old_function_name"
 
 # 3. Read and update each caller
 for each caller:
-    code-read $file $lines -o code
+    codenav read $file $lines -o code
     # Make the rename with exact line numbers
 ```
 
@@ -108,30 +108,30 @@ for each caller:
 
 ```bash
 # 1. Find the function to refactor
-code-search "large_function" --type function
+codenav search "large_function" --type function
 
 # 2. Read with smart truncation to see structure
-code-read src/utils.py 100-300 --symbol --max-lines 80
+codenav read src/utils.py 100-300 --symbol --max-lines 80
 
 # 3. Identify extraction points from the truncated view
 # The ellipsis shows where to look for breakpoints
 
 # 4. Read specific sections you need to move
-code-read src/utils.py 150-180  # The code to extract
+codenav read src/utils.py 150-180  # The code to extract
 ```
 
 ### Move Method to Another Class
 
 ```bash
 # 1. Get file structures for both classes
-code-search --structure src/old_class.py
-code-search --structure src/new_class.py
+codenav search --structure src/old_class.py
+codenav search --structure src/new_class.py
 
 # 2. Read the method to move
-code-read src/old_class.py 45-67 --symbol
+codenav read src/old_class.py 45-67 --symbol
 
 # 3. Check dependencies
-code-search --deps "method_to_move"
+codenav search --deps "method_to_move"
 
 # 4. Read all dependencies to understand what needs to change
 ```
@@ -144,26 +144,26 @@ code-search --deps "method_to_move"
 
 ```bash
 # 1. Error mentions specific function
-code-search "calculate_tax"
+codenav search "calculate_tax"
 
 # 2. Check what it depends on
-code-search --deps "calculate_tax"
+codenav search --deps "calculate_tax"
 
 # 3. Read the function
-code-read src/tax.py 45-67 --symbol
+codenav read src/tax.py 45-67 --symbol
 
 # 4. Read its dependencies
-code-read src/rates.py 12-30 --symbol
+codenav read src/rates.py 12-30 --symbol
 ```
 
 ### Finding Where an Error Could Originate
 
 ```bash
 # Search for exception raising
-code-read src/payments.py --search "raise.*Error"
+codenav read src/payments.py --search "raise.*Error"
 
 # Search for specific error message
-code-read src/payments.py --search "Invalid amount"
+codenav read src/payments.py --search "Invalid amount"
 ```
 
 ### Tracing Call Chains
@@ -208,7 +208,7 @@ trace_calls('process_order')
 # Regenerate code map if Python files changed
 if git diff --cached --name-only | grep -q '\.py$'; then
     echo "Regenerating code map..."
-    codenav scan . -o .codenav.json
+    codenav map . -o .codenav.json
     git add .codenav.json
 fi
 ```
@@ -242,7 +242,7 @@ jobs:
         run: pip install code-navigator
 
       - name: Generate code map
-        run: codenav scan . -o .codenav.json
+        run: codenav map . -o .codenav.json
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -286,11 +286,11 @@ if __name__ == '__main__':
 
 ```bash
 # Map specific directories instead of entire codebase
-codenav scan src/ -o .codenav-src.json
-codenav scan lib/ -o .codenav-lib.json
+codenav map src/ -o .codenav-src.json
+codenav map lib/ -o .codenav-lib.json
 
 # Search with specific map
-code-search "handler" -m .codenav-src.json
+codenav search "handler" -m .codenav-src.json
 
 # Combine maps programmatically if needed
 ```
@@ -341,10 +341,10 @@ def update_map_incrementally(map_path, root_path, changed_files):
 
 ```bash
 # Exclude test files and generated code
-codenav scan . -i "test_*.py" "*_test.py" "*_generated.py" "migrations/"
+codenav map . -i "test_*.py" "*_test.py" "*_generated.py" "migrations/"
 
 # Exclude large auto-generated files
-codenav scan . -i "*.min.js" "*.bundle.js" "vendor/"
+codenav map . -i "*.min.js" "*.bundle.js" "vendor/"
 ```
 
 ---
@@ -367,9 +367,9 @@ Regenerate the code map when:
 .PHONY: codenav
 codenav:
     @echo "Generating code map..."
-    @codenav scan . -o .codenav.json
+    @codenav map . -o .codenav.json
     @echo "Done. Stats:"
-    @code-search --stats | python -m json.tool
+    @codenav search --stats | python -m json.tool
 
 # Run after common operations
 git-pull:
@@ -461,7 +461,7 @@ Use these estimates when planning your workflow:
 
 ```bash
 # Check codebase size
-code-search --stats
+codenav search --stats
 
 # Output:
 # {

@@ -36,7 +36,7 @@ Yes. Example Dockerfile:
 FROM python:3.11-slim
 RUN pip install code-navigator
 WORKDIR /code
-ENTRYPOINT ["codenav scan"]
+ENTRYPOINT ["codenav map"]
 ```
 
 ### Does it work on Windows?
@@ -74,15 +74,15 @@ No, you need to regenerate manually. Consider adding a git hook:
 ```bash
 # .git/hooks/post-merge
 #!/bin/bash
-codenav scan . -o .codenav.json
+codenav map . -o .codenav.json
 ```
 
 ### Can I map only specific directories?
 
 Yes:
 ```bash
-codenav scan src/ -o .codenav-src.json
-codenav scan tests/ -o .codenav-tests.json
+codenav map src/ -o .codenav-src.json
+codenav map tests/ -o .codenav-tests.json
 ```
 
 ---
@@ -123,8 +123,8 @@ Yes! Add patterns to `GenericAnalyzer.PATTERNS`:
 
 All supported languages in a project are indexed together. Use `--file` to filter searches:
 ```bash
-code-search "handler" --file "\.py$"  # Python only
-code-search "handler" --file "\.ts$"  # TypeScript only
+codenav search "handler" --file "\.py$"  # Python only
+codenav search "handler" --file "\.ts$"  # TypeScript only
 ```
 
 ---
@@ -143,7 +143,7 @@ The search uses multiple strategies:
 
 Use separate searches or pipe:
 ```bash
-code-search "user" && code-search "auth"
+codenav search "user" && codenav search "auth"
 ```
 
 Or in Python:
@@ -156,19 +156,19 @@ for term in ['user', 'auth', 'login']:
 ### How do I find all methods of a class?
 
 ```bash
-code-search --structure path/to/file.py
+codenav search --structure path/to/file.py
 ```
 
 Or:
 ```bash
-code-search "ClassName" --deps
+codenav search "ClassName" --deps
 ```
 
 ### Can I search by signature?
 
 Fuzzy search includes signatures:
 ```bash
-code-search "int, str"  # Finds functions with these parameter types
+codenav search "int, str"  # Finds functions with these parameter types
 ```
 
 ---
@@ -183,7 +183,7 @@ Symbol read: Adds smart truncation for large functions (shows head + tail with e
 ### How do I read multiple disconnected ranges?
 
 ```bash
-code-read file.py "10-20,50-60,100-110"
+codenav read file.py "10-20,50-60,100-110"
 ```
 
 Ranges close together are merged automatically.
@@ -248,14 +248,14 @@ Common causes:
 
 Check with:
 ```bash
-codenav scan . 2>&1 | grep -i error
+codenav map . 2>&1 | grep -i error
 ```
 
 ### Why are line numbers wrong?
 
 The code map was generated before recent changes. Regenerate:
 ```bash
-codenav scan .
+codenav map .
 ```
 
 ### Why is search slow?

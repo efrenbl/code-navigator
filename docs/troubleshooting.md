@@ -80,7 +80,7 @@ This guide helps you resolve common issues with Code Navigator.
 
 2. Fix the syntax error or exclude the file:
    ```bash
-   codenav scan . -i "broken_file.py"
+   codenav map . -i "broken_file.py"
    ```
 
 ### Map file is empty or very small
@@ -103,7 +103,7 @@ This guide helps you resolve common issues with Code Navigator.
 
 3. Run with verbose output:
    ```bash
-   codenav scan . 2>&1 | head -20
+   codenav map . 2>&1 | head -20
    ```
 
 ### "Permission denied" errors
@@ -119,7 +119,7 @@ This guide helps you resolve common issues with Code Navigator.
 
 2. Run with appropriate permissions or exclude directories:
    ```bash
-   codenav scan . -i "protected_dir/"
+   codenav map . -i "protected_dir/"
    ```
 
 ### Map generation is very slow
@@ -130,17 +130,17 @@ This guide helps you resolve common issues with Code Navigator.
 
 1. Use ignore patterns for unnecessary directories:
    ```bash
-   codenav scan . -i "node_modules" "vendor" "dist" "build" ".git"
+   codenav map . -i "node_modules" "vendor" "dist" "build" ".git"
    ```
 
 2. Map specific directories:
    ```bash
-   codenav scan src/ -o .codenav-src.json
+   codenav map src/ -o .codenav-src.json
    ```
 
 3. Check for large generated files:
    ```bash
-   codenav scan . -i "*.min.js" "*.bundle.js"
+   codenav map . -i "*.min.js" "*.bundle.js"
    ```
 
 ---
@@ -155,12 +155,12 @@ This guide helps you resolve common issues with Code Navigator.
 
 1. Generate the map first:
    ```bash
-   codenav scan .
+   codenav map .
    ```
 
 2. Specify the correct path:
    ```bash
-   code-search "query" -m /path/to/.codenav.json
+   codenav search "query" -m /path/to/.codenav.json
    ```
 
 3. Check if file exists:
@@ -176,24 +176,24 @@ This guide helps you resolve common issues with Code Navigator.
 
 1. Try without type filter:
    ```bash
-   code-search "payment"  # Instead of --type function
+   codenav search "payment"  # Instead of --type function
    ```
 
 2. Check exact spelling:
    ```bash
-   code-search --stats  # See what symbols exist
+   codenav search --stats  # See what symbols exist
    ```
 
 3. Disable fuzzy matching for exact search:
    ```bash
-   code-search "process_payment" --no-fuzzy
+   codenav search "process_payment" --no-fuzzy
    ```
 
 4. Check if symbol is in ignored files:
    ```bash
    # Regenerate map without ignoring
-   codenav scan . -o .codenav-full.json
-   code-search "symbol" -m .codenav-full.json
+   codenav map . -o .codenav-full.json
+   codenav search "symbol" -m .codenav-full.json
    ```
 
 ### Search results are outdated
@@ -204,12 +204,12 @@ This guide helps you resolve common issues with Code Navigator.
 
 1. Regenerate the map:
    ```bash
-   codenav scan .
+   codenav map .
    ```
 
 2. Check map generation time:
    ```bash
-   code-search --stats | grep generated_at
+   codenav search --stats | grep generated_at
    ```
 
 ### Wrong file in search results
@@ -220,12 +220,12 @@ This guide helps you resolve common issues with Code Navigator.
 
 1. Filter by file pattern:
    ```bash
-   code-search "User" --file "models/"
+   codenav search "User" --file "models/"
    ```
 
 2. Use exact search:
    ```bash
-   code-search "UserModel" --no-fuzzy
+   codenav search "UserModel" --no-fuzzy
    ```
 
 ---
@@ -240,19 +240,19 @@ This guide helps you resolve common issues with Code Navigator.
 
 1. Use the path from search results:
    ```bash
-   code-search "symbol"
+   codenav search "symbol"
    # Use the exact 'file' path from results
-   code-read exact/path/from/results.py 10-20
+   codenav read exact/path/from/results.py 10-20
    ```
 
 2. Specify root directory:
    ```bash
-   code-read src/file.py 10-20 -r /project/root
+   codenav read src/file.py 10-20 -r /project/root
    ```
 
 3. Use absolute path:
    ```bash
-   code-read /full/path/to/file.py 10-20
+   codenav read /full/path/to/file.py 10-20
    ```
 
 ### Line numbers don't match
@@ -263,12 +263,12 @@ This guide helps you resolve common issues with Code Navigator.
 
 1. Regenerate the map:
    ```bash
-   codenav scan .
+   codenav map .
    ```
 
 2. Check file hash:
    ```bash
-   code-search --structure path/to/file.py
+   codenav search --structure path/to/file.py
    # Compare hash with current file
    ```
 
@@ -280,17 +280,17 @@ This guide helps you resolve common issues with Code Navigator.
 
 1. Increase max_lines:
    ```bash
-   code-read file.py 10-200 --symbol --max-lines 150
+   codenav read file.py 10-200 --symbol --max-lines 150
    ```
 
 2. Read without truncation:
    ```bash
-   code-read file.py 10-200  # Without --symbol flag
+   codenav read file.py 10-200  # Without --symbol flag
    ```
 
 3. Read specific sections:
    ```bash
-   code-read file.py "10-50,180-200"
+   codenav read file.py "10-50,180-200"
    ```
 
 ---
@@ -305,13 +305,13 @@ This guide helps you resolve common issues with Code Navigator.
 
 1. Exclude large files:
    ```bash
-   codenav scan . -i "*.min.js" "large_data.py"
+   codenav map . -i "*.min.js" "large_data.py"
    ```
 
 2. Map in smaller chunks:
    ```bash
-   codenav scan src/ -o .codenav-src.json
-   codenav scan lib/ -o .codenav-lib.json
+   codenav map src/ -o .codenav-src.json
+   codenav map lib/ -o .codenav-lib.json
    ```
 
 ### Slow searches
@@ -322,17 +322,17 @@ This guide helps you resolve common issues with Code Navigator.
 
 1. Use more specific queries:
    ```bash
-   code-search "process_payment" --type function --file "billing/"
+   codenav search "process_payment" --type function --file "billing/"
    ```
 
 2. Limit results:
    ```bash
-   code-search "handler" --limit 5
+   codenav search "handler" --limit 5
    ```
 
 3. Disable fuzzy search for exact matches:
    ```bash
-   code-search "exact_name" --no-fuzzy
+   codenav search "exact_name" --no-fuzzy
    ```
 
 ---
@@ -347,7 +347,7 @@ This guide helps you resolve common issues with Code Navigator.
 ```bash
 # Delete and regenerate
 rm .codenav.json
-codenav scan .
+codenav map .
 ```
 
 ### "KeyError: 'files'" or "'index'"
@@ -357,8 +357,8 @@ codenav scan .
 **Solution:**
 ```bash
 # Check version and regenerate if needed
-code-search --stats
-codenav scan . -o .codenav.json
+codenav search --stats
+codenav map . -o .codenav.json
 ```
 
 ### "UnicodeDecodeError"
@@ -371,7 +371,7 @@ codenav scan . -o .codenav.json
 2. If persistent, identify and exclude problematic files:
    ```bash
    file path/to/file  # Check encoding
-   codenav scan . -i "problematic_file.py"
+   codenav map . -i "problematic_file.py"
    ```
 
 ### "RecursionError" during map generation
@@ -402,7 +402,7 @@ If you can't resolve an issue:
 
 3. **Include diagnostic info:**
    ```bash
-   code-search --stats
-   codenav scan --version
+   codenav search --stats
+   codenav map --version
    python -c "import codenav; print(codenav.__version__)"
    ```

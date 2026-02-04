@@ -153,11 +153,34 @@ Or via MCP tool `codenav_read`:
 
 ## Setup by IDE
 
+### Quick Install (Recommended)
+
+For all IDEs, the fastest setup is:
+```bash
+npx skills add github:efrenbl/code-navigator
+```
+
+This automatically configures everything for Claude Code, including MCP server and skill files.
+
+---
+
 ### Claude Code
+
+**Option A: Automatic (Recommended)**
+```bash
+npx skills add github:efrenbl/code-navigator
+```
+
+**Option B: Interactive Script**
+```bash
+curl -sL https://raw.githubusercontent.com/efrenbl/code-navigator/main/skills/code-navigator/scripts/install.sh | bash
+```
+
+**Option C: Manual Setup**
 
 1. Install the package:
 ```bash
-pip install codenav
+pip install code-navigator
 ```
 
 2. Copy skill to Claude Code:
@@ -177,27 +200,50 @@ cp -r skills/code-navigator ~/.claude/skills/
 }
 ```
 
+---
+
 ### Cursor
 
 1. Install the package:
 ```bash
-pip install codenav
+pip install code-navigator
 ```
 
-2. Add to `.cursor/rules`:
+2. Add to `.cursor/rules` (project-level) or `~/.cursor/rules` (global):
 ```markdown
 ## Code Navigation
-When exploring code, use `codenav` commands:
-- `codenav map .` - Generate code map
-- `codenav search "symbol"` - Find functions/classes
-- `codenav read file.py 10-50` - Read specific lines
+
+Use codenav for efficient code exploration:
+- `codenav map .` - Index the codebase
+- `codenav search "function_name"` - Find symbols
+- `codenav read src/file.py 45-60` - Read specific lines
+- `codenav hubs` - Find architectural hub files
+
+### Workflow
+1. Always run `codenav map .` before exploring a new project
+2. Use `codenav search` before reading files to find exact locations
+3. Use `codenav read` with specific line ranges instead of reading entire files
 ```
 
-### VS Code
+3. Configure MCP in Cursor settings (optional):
+```json
+{
+  "mcpServers": {
+    "codenav": {
+      "command": "python",
+      "args": ["-m", "codenav.mcp"]
+    }
+  }
+}
+```
+
+---
+
+### VS Code (Roo Code / Continue)
 
 1. Install the package:
 ```bash
-pip install codenav
+pip install code-navigator
 ```
 
 2. Add to `.vscode/tasks.json`:
@@ -208,24 +254,58 @@ pip install codenav
     {
       "label": "codenav: map",
       "type": "shell",
-      "command": "codenav map ."
+      "command": "codenav map .",
+      "problemMatcher": []
     },
     {
       "label": "codenav: search",
       "type": "shell",
-      "command": "codenav search ${input:symbol}"
+      "command": "codenav search ${input:query}",
+      "problemMatcher": []
+    },
+    {
+      "label": "codenav: hubs",
+      "type": "shell",
+      "command": "codenav hubs . --top 10",
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "query",
+      "type": "promptString",
+      "description": "Symbol to search for"
     }
   ]
 }
 ```
 
+3. Add keyboard shortcuts in `keybindings.json` (optional):
+```json
+[
+  {
+    "key": "ctrl+shift+m",
+    "command": "workbench.action.tasks.runTask",
+    "args": "codenav: map"
+  },
+  {
+    "key": "ctrl+shift+f",
+    "command": "workbench.action.tasks.runTask",
+    "args": "codenav: search"
+  }
+]
+```
+
+---
+
 ### CLI (Any Terminal)
 
 ```bash
-pip install codenav
+pip install code-navigator
 codenav map .
 codenav search "my_function"
 codenav read src/file.py 10-50
+codenav hubs . --top 5
 ```
 
 ## Token Efficiency

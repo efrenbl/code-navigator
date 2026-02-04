@@ -216,10 +216,10 @@ methods = searcher.list_by_type('method', limit=50)
 **CLI Usage:**
 ```bash
 # List all classes
-code-search --type class
+codenav search --type class
 
 # List all functions in api/
-code-search --type function --file "api/"
+codenav search --type function --file "api/"
 ```
 
 #### search_file()
@@ -487,10 +487,10 @@ class SearchResult:
 
 ## Command Line Interface
 
-### codenav scan
+### codenav map
 
 ```bash
-codenav scan PATH [-o OUTPUT] [-i IGNORE...] [--pretty] [-v]
+codenav map PATH [-o OUTPUT] [-i IGNORE...] [--pretty] [-v]
 ```
 
 **Options:**
@@ -500,13 +500,13 @@ codenav scan PATH [-o OUTPUT] [-i IGNORE...] [--pretty] [-v]
 - `--pretty`: Pretty-print JSON
 - `-v, --version`: Show version
 
-### code-search
+### codenav search
 
 ```bash
-code-search QUERY [-m MAP] [-t TYPE] [-f FILE] [-l LIMIT] [--no-fuzzy] [--pretty]
-code-search --structure FILE
-code-search --deps SYMBOL
-code-search --stats
+codenav search QUERY [-m MAP] [-t TYPE] [-f FILE] [-l LIMIT] [--no-fuzzy] [--pretty]
+codenav search --structure FILE
+codenav search --deps SYMBOL
+codenav search --stats
 ```
 
 **Options:**
@@ -521,11 +521,11 @@ code-search --stats
 - `--stats`: Show codebase stats
 - `--pretty`: Pretty-print JSON
 
-### code-read
+### codenav read
 
 ```bash
-code-read FILE LINES [-r ROOT] [-c CONTEXT] [--symbol] [--max-lines N] [-o FORMAT]
-code-read FILE --search PATTERN
+codenav read FILE LINES [-r ROOT] [-c CONTEXT] [--symbol] [--max-lines N] [-o FORMAT]
+codenav read FILE --search PATTERN
 ```
 
 **Options:**
