@@ -2,13 +2,13 @@
   <img src="https://img.shields.io/badge/python-3.8+-blue.svg" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License">
   <img src="https://img.shields.io/badge/version-2.0.0-orange.svg" alt="Version 2.0.0">
-  <img src="https://github.com/efrenbl/claude-code-navigator/actions/workflows/ci.yml/badge.svg" alt="CI Status">
+  <img src="https://github.com/efrenbl/code-navigator/actions/workflows/ci.yml/badge.svg" alt="CI Status">
 </p>
 
-<h1 align="center">🧭 Claude Code Navigator</h1>
+<h1 align="center">🧭 Code Navigator</h1>
 
 <p align="center">
-  <strong>Reduce token usage by 97% when working with large codebases in Claude Code</strong>
+  <strong>Reduce token usage by 97% when working with large codebases in any AI coding assistant</strong>
 </p>
 
 <p align="center">
@@ -19,7 +19,7 @@
 
 ## 🎯 The Problem
 
-When using AI coding assistants with large codebases, **reading entire files burns through tokens fast**:
+When using AI coding assistants (Claude Code, Cursor, VS Code + AI, etc.) with large codebases, **reading entire files burns through tokens fast**:
 
 | Codebase Size | Traditional Approach | Token Cost |
 |--------------|---------------------|------------|
@@ -31,7 +31,7 @@ When using AI coding assistants with large codebases, **reading entire files bur
 
 ## 💡 The Solution
 
-Claude Code Navigator creates a lightweight index of your codebase **locally**, enabling:
+Code Navigator creates a lightweight index of your codebase **locally**, enabling:
 
 - **Instant symbol search** - Find functions, classes, methods by name
 - **Surgical reads** - Load only the exact lines you need (not entire files)
@@ -74,11 +74,11 @@ Claude Code Navigator creates a lightweight index of your codebase **locally**, 
 
 ```bash
 # Install via pip
-pip install claude-code-navigator
+pip install code-navigator
 
 # Or clone and install locally
-git clone https://github.com/efrenbl/claude-code-navigator.git
-cd claude-code-navigator
+git clone https://github.com/efrenbl/code-navigator.git
+cd code-navigator
 pip install -e .
 ```
 
@@ -114,35 +114,35 @@ codenav stats
 
 ---
 
-## 🤖 Using with Claude Code (CLI)
+## 🤖 Using with AI Assistants
 
-This tool integrates seamlessly with Claude Code. Install the skill and let Claude handle everything automatically.
+This tool integrates seamlessly with multiple AI coding assistants. Install the skill and let your assistant handle everything automatically.
 
-### Installation as Claude Code Skill
+### Installation as Skill
 
-This project follows the **SKILL.md standard** for maximum compatibility with Claude Code and other agent ecosystems.
+This project follows the **SKILL.md standard** for maximum compatibility with Claude Code, Cursor, VS Code, and other agent ecosystems.
 
 ```bash
 # Option 1: Copy skill folder directly (recommended)
 # For a specific project
-cp -r skills/code-map-navigator .claude/skills/
+cp -r skills/code-navigator .claude/skills/
 
 # For all your projects (personal)
-cp -r skills/code-map-navigator ~/.claude/skills/
+cp -r skills/code-navigator ~/.claude/skills/
 
 # Option 2: Use the packaged .skill file
 # For a specific project
 mkdir -p .claude/skills
-unzip code-map-navigator.skill -d .claude/skills/
+unzip code-navigator.skill -d .claude/skills/
 
 # For all your projects (personal)
 mkdir -p ~/.claude/skills
-unzip code-map-navigator.skill -d ~/.claude/skills/
+unzip code-navigator.skill -d ~/.claude/skills/
 ```
 
 **Skill Structure (SKILL.md Standard):**
 ```
-skills/code-map-navigator/
+skills/code-navigator/
 ├── SKILL.md           # Main skill definition with YAML frontmatter
 ├── references/        # On-demand documentation
 │   ├── api-reference.md
@@ -154,7 +154,7 @@ skills/code-map-navigator/
 
 ### Automatic Activation
 
-Once installed, Claude Code activates the skill automatically when you mention:
+Once installed, your AI assistant activates the skill automatically when you mention:
 - "map the code" / "generate codenav"
 - "optimize tokens"
 - "find the function X"
@@ -164,78 +164,22 @@ Once installed, Claude Code activates the skill automatically when you mention:
 
 ```bash
 cd /your/project
-claude
 
-# Inside Claude Code:
+# In any AI assistant (Claude Code, Cursor, etc.):
 > Map this project to optimize tokens
 
-Claude: [Runs code_navigator.py -> creates .codenav.json]
-        Map generated: 45 files, 303 symbols
+AI: [Runs codenav map -> creates .codenav.json]
+    Map generated: 45 files, 303 symbols
 
 > Find the function that handles payments
 
-Claude: [Runs code_search.py "payment"]
-        Found: process_payment in src/billing.py:45-89
+AI: [Runs codenav search "payment"]
+    Found: process_payment in src/billing.py:45-89
 
 > Show me that function
 
-Claude: [Runs line_reader.py src/billing.py 45-89]
-        [Shows only lines 45-89, not the entire file]
-```
-
-### Direct Invocation
-
-```bash
-# From terminal
-claude "/codenav"
-
-# Or inside a Claude Code session
-/codenav
-```
-
-### Maximizing Integration (Recommended)
-
-For the best experience, add these configurations:
-
-**1. Global CLAUDE.md** (`~/.claude/CLAUDE.md`):
-```markdown
-# Code Navigation Guidelines
-
-## Use /codenav FIRST when:
-- Exploring or understanding any codebase structure
-- Finding functions, classes, methods, or modules
-- User asks "where is X", "how does X work", "find X"
-- Working with projects of 20+ files
-- Before reading entire files - get line numbers first
-
-## Use Grep/Glob only when:
-- Searching for literal strings or regex patterns
-- The codenav doesn't exist and it's a quick search
-- Searching in non-code files (configs, logs)
-```
-
-**2. Hooks in settings.json** (`~/.claude/settings.json`):
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Glob",
-        "hooks": [{
-          "type": "command",
-          "command": "echo '💡 Tip: For code symbols, consider /codenav' >&2; exit 0"
-        }]
-      },
-      {
-        "matcher": "Grep",
-        "hooks": [{
-          "type": "command",
-          "command": "echo '💡 Tip: code-search is more precise for functions/classes' >&2; exit 0"
-        }]
-      }
-    ]
-  }
-}
+AI: [Runs codenav read src/billing.py 45-89]
+    [Shows only lines 45-89, not the entire file]
 ```
 
 ---
@@ -559,7 +503,7 @@ flowchart TB
 | Ruby | Regex-based | ⭐⭐⭐ |
 | PHP | Regex-based | ⭐⭐⭐ |
 
-*JavaScript/TypeScript use tree-sitter AST when installed (`pip install claude-code-navigator[ast]`), with automatic fallback to regex.
+*JavaScript/TypeScript use tree-sitter AST when installed (`pip install code-navigator[ast]`), with automatic fallback to regex.
 
 Python receives full AST analysis with accurate line ranges. JS/TS with tree-sitter detect functions, arrow functions, classes, methods, interfaces, types, and enums.
 
@@ -571,23 +515,23 @@ Python receives full AST analysis with accurate line ranges. JS/TS with tree-sit
 
 ```bash
 # Basic install (Python AST, regex for other languages)
-pip install claude-code-navigator
+pip install code-navigator
 
 # With tree-sitter AST support for JavaScript/TypeScript
-pip install claude-code-navigator[ast]
+pip install code-navigator[ast]
 ```
 
 ### Option 2: pipx (Isolated environment)
 
 ```bash
-pipx install claude-code-navigator
+pipx install code-navigator
 ```
 
 ### Option 3: From source
 
 ```bash
-git clone https://github.com/efrenbl/claude-code-navigator.git
-cd claude-code-navigator
+git clone https://github.com/efrenbl/code-navigator.git
+cd code-navigator
 pip install -e .
 ```
 
@@ -597,10 +541,10 @@ Copy the skill folder to your Claude Code skills directory:
 
 ```bash
 # Copy skill folder (SKILL.md standard)
-cp -r skills/code-map-navigator ~/.claude/skills/
+cp -r skills/code-navigator ~/.claude/skills/
 
 # Or use the packaged .skill file
-unzip code-map-navigator.skill -d ~/.claude/skills/
+unzip code-navigator.skill -d ~/.claude/skills/
 ```
 
 ### Requirements
@@ -668,7 +612,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
-Built for the Claude Code community to make AI-assisted coding more efficient and cost-effective.
+Built for the AI coding community to make AI-assisted coding more efficient and cost-effective. Works with Claude Code, Cursor, VS Code, and any terminal.
 
 ---
 

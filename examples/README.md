@@ -1,6 +1,6 @@
 # Examples
 
-This directory contains practical examples of using Claude Code Navigator.
+This directory contains practical examples of using Code Navigator.
 
 ## Files
 

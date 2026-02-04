@@ -1,11 +1,11 @@
-# Claude Code Navigator - Makefile
+# Code Navigator - Makefile
 # Provides common development commands
 
 .PHONY: help install dev-setup test coverage lint format clean build publish
 
 # Default target
 help:
-	@echo "Claude Code Navigator - Development Commands"
+	@echo "Code Navigator - Development Commands"
 	@echo ""
 	@echo "Setup:"
 	@echo "  make install      Install package in current environment"

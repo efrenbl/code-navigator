@@ -36,7 +36,7 @@ Paste any error messages or stack traces here
 
 - **OS**: [e.g., macOS 14.0, Ubuntu 22.04, Windows 11]
 - **Python version**: [e.g., 3.10.12] (run `python --version`)
-- **Package version**: [e.g., 1.0.0] (run `pip show claude-code-navigator`)
+- **Package version**: [e.g., 1.0.0] (run `pip show codenav`)
 
 ## Code Map Info (if applicable)
 

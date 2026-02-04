@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Claude Code Navigator will be documented in this file.
+All notable changes to Code Navigator will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -54,7 +54,7 @@ No unreleased changes.
 
 ### Added
 - **AST support for JavaScript/TypeScript** via tree-sitter (optional dependency)
-  - Install with `pip install claude-code-navigator[ast]`
+  - Install with `pip install code-navigator[ast]`
   - Detects functions, arrow functions, classes, methods, interfaces, types, enums
   - Automatic fallback to regex when tree-sitter not installed
   - New `js_ts_analyzer.py` module with `JavaScriptAnalyzer` and `TypeScriptAnalyzer`
@@ -219,11 +219,11 @@ None at this time.
 
 ---
 
-[Unreleased]: https://github.com/efrenbl/claude-code-navigator/compare/v1.4.1...HEAD
-[1.4.1]: https://github.com/efrenbl/claude-code-navigator/compare/v1.4.0...v1.4.1
-[1.4.0]: https://github.com/efrenbl/claude-code-navigator/compare/v1.3.0...v1.4.0
-[1.3.0]: https://github.com/efrenbl/claude-code-navigator/compare/v1.2.0...v1.3.0
-[1.2.0]: https://github.com/efrenbl/claude-code-navigator/compare/v1.1.0...v1.2.0
-[1.1.0]: https://github.com/efrenbl/claude-code-navigator/compare/v1.0.1...v1.1.0
-[1.0.1]: https://github.com/efrenbl/claude-code-navigator/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/efrenbl/claude-code-navigator/releases/tag/v1.0.0
+[Unreleased]: https://github.com/efrenbl/code-navigator/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/efrenbl/code-navigator/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/efrenbl/code-navigator/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/efrenbl/code-navigator/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/efrenbl/code-navigator/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/efrenbl/code-navigator/compare/v1.0.1...v1.1.0
+[1.0.1]: https://github.com/efrenbl/code-navigator/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/efrenbl/code-navigator/releases/tag/v1.0.0

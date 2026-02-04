@@ -1,6 +1,6 @@
 # Tests
 
-This directory contains the test suite for Claude Code Navigator.
+This directory contains the test suite for Code Navigator.
 
 ## Running Tests
 

@@ -1,6 +1,6 @@
 //! # Code Map Core
 //!
-//! High-performance core algorithms for Claude Code Navigator.
+//! High-performance core algorithms for Code Navigator.
 //!
 //! This crate provides Rust implementations of performance-critical algorithms
 //! that can be called from Python via PyO3 bindings.

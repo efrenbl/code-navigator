@@ -1,6 +1,6 @@
 # Advanced Usage Guide
 
-This guide covers advanced patterns and techniques for getting the most out of Claude Code Navigator.
+This guide covers advanced patterns and techniques for getting the most out of Code Navigator.
 
 ## Table of Contents
 
@@ -238,8 +238,8 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install claude-code-navigator
-        run: pip install claude-code-navigator
+      - name: Install codenav
+        run: pip install codenav
 
       - name: Generate code map
         run: codenav scan . -o .codenav.json
