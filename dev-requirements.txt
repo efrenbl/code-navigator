@@ -1,4 +1,4 @@
-# Development dependencies for Claude Code Navigator
+# Development dependencies for Code Navigator
 # Install with: pip install -r dev-requirements.txt
 # Or: pip install -e ".[dev]"
 

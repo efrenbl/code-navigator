@@ -1,6 +1,6 @@
 # API Reference
 
-This document provides detailed API documentation for Claude Code Navigator.
+This document provides detailed API documentation for Code Navigator.
 
 ## Table of Contents
 

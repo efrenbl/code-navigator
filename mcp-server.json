@@ -5,8 +5,8 @@
   "description": "Token-efficient code navigation for large codebases - reduce token usage by 97%",
   "author": "Efren",
   "license": "MIT",
-  "repository": "https://github.com/efrenbl/claude-code-navigator",
-  "homepage": "https://github.com/efrenbl/claude-code-navigator",
+  "repository": "https://github.com/efrenbl/code-navigator",
+  "homepage": "https://github.com/efrenbl/code-navigator",
   "keywords": [
     "code-navigation",
     "token-optimization",

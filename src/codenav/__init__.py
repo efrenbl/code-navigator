@@ -1,4 +1,4 @@
-"""Claude Code Navigator - Token-efficient code navigation for large codebases.
+"""Code Navigator - Token-efficient code navigation for large codebases.
 
 This package provides tools for creating structural maps of codebases and
 navigating them efficiently, reducing token usage by up to 97% when working

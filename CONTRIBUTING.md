@@ -1,4 +1,4 @@
-# Contributing to Claude Code Navigator
+# Contributing to Code Navigator
 
 Thank you for your interest in contributing! This guide will help you get started.
 
@@ -29,13 +29,13 @@ This project follows a simple code of conduct: be respectful, be constructive, a
 1. Fork the repository on GitHub
 2. Clone your fork locally:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/claude-code-navigator.git
-   cd claude-code-navigator
+   git clone https://github.com/YOUR_USERNAME/code-navigator.git
+   cd code-navigator
    ```
 
 3. Add the upstream remote:
    ```bash
-   git remote add upstream https://github.com/efrenbl/claude-code-navigator.git
+   git remote add upstream https://github.com/efrenbl/code-navigator.git
    ```
 
 ## Development Setup
@@ -289,7 +289,7 @@ Use the feature request template: [Feature Request](.github/ISSUE_TEMPLATE/featu
 ## Project Structure
 
 ```
-claude-code-navigator/
+code-navigator/
 ├── src/
 │   └── codenav/
 │       ├── __init__.py
@@ -299,7 +299,7 @@ claude-code-navigator/
 │       ├── import_resolver.py
 │       └── mcp/                # MCP server implementation
 ├── skills/                     # SKILL.md standard compliant
-│   └── code-map-navigator/
+│   └── code-navigator/
 │       ├── SKILL.md           # Skill definition (YAML + Markdown)
 │       ├── references/        # On-demand documentation
 │       ├── scripts/           # Executable scripts

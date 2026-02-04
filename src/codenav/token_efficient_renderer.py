@@ -39,6 +39,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+# Default limits for token-efficient rendering (configurable)
+DEFAULT_MAX_CLASSES = 2
+DEFAULT_MAX_METHODS_PER_CLASS = 3
+DEFAULT_MAX_FUNCTIONS = 3
+
 
 class HubLevel(Enum):
     """Hub importance levels based on import count."""
@@ -56,8 +61,8 @@ class FileMicroMeta:
 
     Attributes:
         path: Relative file path.
-        classes: List of class names (max 2 shown).
-        functions: List of function names (max 3 shown).
+        classes: List of class names.
+        functions: List of function names.
         methods: Dict of class -> method names.
         imports_count: Number of files this imports.
         importers_count: Number of files importing this.
@@ -87,13 +92,22 @@ class FileMicroMeta:
             return HubLevel.LOW
         return HubLevel.NONE
 
-    def format_micro(self, max_width: int = 60) -> str:
+    def format_micro(
+        self,
+        max_width: int = 60,
+        max_classes: int = DEFAULT_MAX_CLASSES,
+        max_methods: int = DEFAULT_MAX_METHODS_PER_CLASS,
+        max_functions: int = DEFAULT_MAX_FUNCTIONS,
+    ) -> str:
         """Format as compact micro-metadata string.
 
         Format: [C:ClassName M:method1,method2] or [F:func1,func2]
 
         Args:
             max_width: Maximum width for the metadata portion.
+            max_classes: Maximum number of classes to show.
+            max_methods: Maximum methods per class to show.
+            max_functions: Maximum standalone functions to show.
 
         Returns:
             Compact metadata string.
@@ -102,15 +116,15 @@ class FileMicroMeta:
 
         # Classes with their methods
         if self.classes:
-            for cls in self.classes[:2]:  # Max 2 classes
-                methods = self.methods.get(cls, [])[:3]  # Max 3 methods
+            for cls in self.classes[:max_classes]:
+                methods = self.methods.get(cls, [])[:max_methods]
                 if methods:
                     parts.append(f"C:{cls} M:{','.join(methods)}")
                 else:
                     parts.append(f"C:{cls}")
 
         # Standalone functions (not methods)
-        standalone_funcs = [f for f in self.functions if not f.startswith("_")][:3]
+        standalone_funcs = [f for f in self.functions if not f.startswith("_")][:max_functions]
         if standalone_funcs and not self.classes:
             parts.append(f"F:{','.join(standalone_funcs)}")
         elif standalone_funcs and len(parts) < 2:
@@ -202,6 +216,10 @@ class TokenEfficientRenderer:
         code_map: Dict[str, Any],
         hub_threshold: int = 3,
         dependency_graph: Any = None,  # Optional DependencyGraph
+        max_classes: int = DEFAULT_MAX_CLASSES,
+        max_methods: int = DEFAULT_MAX_METHODS_PER_CLASS,
+        max_functions: int = DEFAULT_MAX_FUNCTIONS,
+        root_path: str = None,
     ):
         """Initialize the renderer.
 
@@ -209,10 +227,18 @@ class TokenEfficientRenderer:
             code_map: Code map dictionary from CodeNavigator.
             hub_threshold: Min importers to be a hub (default: 3).
             dependency_graph: Optional DependencyGraph for hub detection.
+            max_classes: Max classes to show per file (default: 2).
+            max_methods: Max methods per class to show (default: 3).
+            max_functions: Max standalone functions to show (default: 3).
+            root_path: Root path for the codebase (optional).
         """
         self.code_map = code_map
         self.hub_threshold = hub_threshold
         self.dependency_graph = dependency_graph
+        self.max_classes = max_classes
+        self.max_methods = max_methods
+        self.max_functions = max_functions
+        self.root_path = root_path
         self.files: Dict[str, FileMicroMeta] = {}
         self.tree: Optional[TreeNode] = None
 
@@ -419,7 +445,11 @@ class TokenEfficientRenderer:
                 # File with micro-metadata
                 line = f"{prefix}{connector} {name}"
                 if show_meta and child.meta:
-                    meta_str = child.meta.format_micro()
+                    meta_str = child.meta.format_micro(
+                        max_classes=self.max_classes,
+                        max_methods=self.max_methods,
+                        max_functions=self.max_functions,
+                    )
                     if meta_str:
                         line += f" {meta_str}"
                 lines.append(line)
@@ -583,14 +613,14 @@ class TokenEfficientRenderer:
 
             for path, meta in self.files.items():
                 short_path = Path(path).stem
-                for cls in meta.classes:
-                    methods = meta.methods.get(cls, [])[:2]
+                for cls in meta.classes[: self.max_classes]:
+                    methods = meta.methods.get(cls, [])[: self.max_methods]
                     if methods:
                         classes.append(f"{short_path}.{cls}({','.join(methods)})")
                     else:
                         classes.append(f"{short_path}.{cls}")
 
-                for func in meta.functions[:3]:
+                for func in meta.functions[: self.max_functions]:
                     if not func.startswith("_"):
                         functions.append(f"{short_path}.{func}")
 
@@ -613,14 +643,14 @@ class TokenEfficientRenderer:
                 short = Path(path).stem
                 symbols = []
 
-                for cls in meta.classes[:2]:
-                    methods = meta.methods.get(cls, [])[:2]
+                for cls in meta.classes[: self.max_classes]:
+                    methods = meta.methods.get(cls, [])[: self.max_methods]
                     if methods:
                         symbols.append(f"C:{cls}({','.join(methods)})")
                     else:
                         symbols.append(f"C:{cls}")
 
-                for func in meta.functions[:2]:
+                for func in meta.functions[: self.max_functions]:
                     if not func.startswith("_"):
                         symbols.append(f"F:{func}")
 

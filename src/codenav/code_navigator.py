@@ -51,14 +51,11 @@ LANGUAGE_EXTENSIONS = {
 }
 
 DEFAULT_IGNORE_PATTERNS = [
+    # Build artifacts and dependencies
     "node_modules",
     "__pycache__",
-    ".git",
-    ".svn",
-    ".hg",
     "venv",
     "env",
-    ".env",
     "dist",
     "build",
     ".next",
@@ -74,8 +71,53 @@ DEFAULT_IGNORE_PATTERNS = [
     "target",
     "bin",
     "obj",
+    # Version control
+    ".git",
+    ".svn",
+    ".hg",
+    # IDE settings
     ".idea",
     ".vscode",
+    # Environment files - ALL variants (SECURITY: prevents exposure of secrets)
+    ".env",
+    ".env.*",
+    ".env.local",
+    ".env.*.local",
+    ".env.production*",
+    ".env.development*",
+    ".envrc",
+    "*.env",
+    # Credentials and secrets (SECURITY)
+    "secrets*",
+    "*secret*",
+    "*secrets*",
+    "*credential*",
+    "*credentials*",
+    ".aws",
+    ".gcp",
+    ".ssh",
+    ".gnupg",
+    # Keys and certificates (SECURITY)
+    "*.pem",
+    "*.key",
+    "*.p8",
+    "*.p12",
+    "*.pfx",
+    "id_rsa*",
+    "id_ed25519*",
+    "id_ecdsa*",
+    "*.crt",
+    "*.cer",
+    # Config files with potential secrets (SECURITY)
+    ".npmrc",
+    ".pypirc",
+    ".netrc",
+    "config/database.yml",
+    "config/secrets.yml",
+    # API keys and tokens
+    "*apikey*",
+    "*api_key*",
+    "*token*",
 ]
 
 

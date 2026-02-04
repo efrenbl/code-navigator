@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Terminal color utilities for Claude Code Navigator.
+"""Terminal color utilities for Code Navigator.
 
 Provides ANSI color support with automatic detection of terminal capabilities.
 Respects the NO_COLOR environment variable (https://no-color.org/).

@@ -3,7 +3,7 @@ name = "codenav_core"
 version = "0.1.0"
 edition = "2021"
 authors = ["Efren <ing.efrenbl@gmail.com>"]
-description = "High-performance core algorithms for Claude Code Navigator"
+description = "High-performance core algorithms for Code Navigator"
 license = "MIT"
 readme = "README.md"
 

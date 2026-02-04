@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-This guide helps you resolve common issues with Claude Code Navigator.
+This guide helps you resolve common issues with Code Navigator.
 
 ## Table of Contents
 
@@ -23,7 +23,7 @@ This guide helps you resolve common issues with Claude Code Navigator.
 
 1. Verify installation:
    ```bash
-   pip show claude-code-navigator
+   pip show code-navigator
    ```
 
 2. Try running with Python:
@@ -33,14 +33,14 @@ This guide helps you resolve common issues with Claude Code Navigator.
 
 3. Check if scripts directory is in PATH:
    ```bash
-   pip show -f claude-code-navigator | grep "Location"
+   pip show -f code-navigator | grep "Location"
    # Add the scripts directory to PATH
    ```
 
 4. Reinstall:
    ```bash
-   pip uninstall claude-code-navigator
-   pip install claude-code-navigator
+   pip uninstall code-navigator
+   pip install code-navigator
    ```
 
 ### Import errors after installation
@@ -58,7 +58,7 @@ This guide helps you resolve common issues with Claude Code Navigator.
    ```bash
    python -m venv venv
    source venv/bin/activate
-   pip install claude-code-navigator
+   pip install code-navigator
    ```
 
 ---
@@ -391,11 +391,11 @@ python -c "import sys; sys.setrecursionlimit(2000); from codenav import CodeNavi
 If you can't resolve an issue:
 
 1. **Check existing issues:**
-   https://github.com/efrenbl/claude-code-navigator/issues
+   https://github.com/efrenbl/code-navigator/issues
 
 2. **Create a new issue** with:
    - Python version (`python --version`)
-   - Package version (`pip show claude-code-navigator`)
+   - Package version (`pip show code-navigator`)
    - Operating system
    - Full error message
    - Steps to reproduce

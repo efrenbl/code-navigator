@@ -6,11 +6,11 @@ Complete reference for the `codenav` command-line interface.
 
 ```bash
 # Install via pip
-pip install claude-code-navigator
+pip install code-navigator
 
 # Or install from source
-git clone https://github.com/efrenbl/claude-code-navigator.git
-cd claude-code-navigator
+git clone https://github.com/efrenbl/code-navigator.git
+cd code-navigator
 pip install -e .
 ```
 

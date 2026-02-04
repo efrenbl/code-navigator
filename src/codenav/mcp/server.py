@@ -272,6 +272,35 @@ class CodenavToolHandler:
         self._code_map_cache: Dict[str, Dict] = {}
         self._navigator_cache: Dict[str, CodeNavigator] = {}
 
+    def _validate_path(self, requested_path: str) -> str:
+        """Validate that requested path is within workspace root.
+
+        Args:
+            requested_path: The path to validate.
+
+        Returns:
+            The validated absolute path as a string.
+
+        Raises:
+            ValueError: If the path is outside the workspace or is a symlink.
+        """
+        try:
+            abs_requested = Path(requested_path).resolve()
+            abs_workspace = Path(self.workspace_root).resolve()
+
+            # Ensure path is within workspace
+            abs_requested.relative_to(abs_workspace)
+
+            # Prevent symlink escaping
+            if Path(requested_path).is_symlink():
+                raise ValueError("Symlinks not allowed for security")
+
+            return str(abs_requested)
+        except ValueError as e:
+            raise ValueError(
+                f"Path '{requested_path}' is outside workspace or invalid: {e}"
+            ) from None
+
     def _get_navigator(self, path: str) -> CodeNavigator:
         """Get or create a CodeNavigator for the given path."""
         abs_path = os.path.abspath(path)
@@ -303,7 +332,7 @@ class CodenavToolHandler:
 
     async def handle_scan(self, arguments: Dict[str, Any]) -> str:
         """Handle codenav_scan tool call."""
-        path = arguments.get("path", self.workspace_root)
+        path = self._validate_path(arguments.get("path", self.workspace_root))
         ignore_patterns = arguments.get("ignore_patterns", [])
         git_only = arguments.get("git_only", False)
         max_depth = arguments.get("max_depth", 0)
@@ -334,7 +363,7 @@ class CodenavToolHandler:
         symbol_type = arguments.get("symbol_type", "any")
         file_pattern = arguments.get("file_pattern")
         limit = arguments.get("limit", 20)
-        path = arguments.get("path", self.workspace_root)
+        path = self._validate_path(arguments.get("path", self.workspace_root))
 
         # Ensure we have a code map
         code_map = self._get_code_map(path)
@@ -342,8 +371,10 @@ class CodenavToolHandler:
         # Create a temporary map file for CodeSearcher
         map_path = Path(path) / ".codenav.json"
         if not map_path.exists():
-            with open(map_path, "w") as f:
+            with open(map_path, "w", encoding="utf-8") as f:
                 json.dump(code_map, f)
+            # Set secure file permissions (owner read/write only)
+            os.chmod(map_path, 0o600)
 
         searcher = CodeSearcher(str(map_path))
 
@@ -364,19 +395,19 @@ class CodenavToolHandler:
 
     async def handle_read(self, arguments: Dict[str, Any]) -> str:
         """Handle codenav_read tool call."""
-        file_path = arguments["file_path"]
+        file_path = self._validate_path(arguments["file_path"])
         start_line = arguments["start_line"]
         end_line = arguments["end_line"]
         context = arguments.get("context", 0)
 
-        reader = LineReader()
+        reader = LineReader(root_path=self.workspace_root)
         content = reader.read_lines(file_path, start_line, end_line, context=context)
 
         return content
 
     async def handle_get_hubs(self, arguments: Dict[str, Any]) -> str:
         """Handle codenav_get_hubs tool call."""
-        path = arguments.get("path", self.workspace_root)
+        path = self._validate_path(arguments.get("path", self.workspace_root))
         top_n = arguments.get("top_n", 10)
         min_imports = arguments.get("min_imports", 3)
 
@@ -402,8 +433,10 @@ class CodenavToolHandler:
 
     async def handle_get_dependencies(self, arguments: Dict[str, Any]) -> str:
         """Handle codenav_get_dependencies tool call."""
-        path = arguments.get("path", self.workspace_root)
+        path = self._validate_path(arguments.get("path", self.workspace_root))
         file = arguments.get("file")
+        if file:
+            file = self._validate_path(file)
         direction = arguments.get("direction", "both")
         depth = arguments.get("depth", 1)
 
@@ -416,7 +449,7 @@ class CodenavToolHandler:
 
     async def handle_get_structure(self, arguments: Dict[str, Any]) -> str:
         """Handle codenav_get_structure tool call."""
-        file_path = arguments["file_path"]
+        file_path = self._validate_path(arguments["file_path"])
         include_private = arguments.get("include_private", False)
 
         # Get the code map for the file's directory

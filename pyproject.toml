@@ -16,14 +16,16 @@ maintainers = [
     {name = "Efren", email = "efren@example.com"}
 ]
 keywords = [
-    "claude",
     "code-navigation",
     "token-optimization",
     "ast",
     "code-search",
     "developer-tools",
     "ai-coding",
-    "codebase-indexing"
+    "codebase-indexing",
+    "cursor",
+    "vscode",
+    "multi-ide"
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -57,34 +59,34 @@ dev = [
     "twine>=4.0.0",
 ]
 ast = [
-    "tree-sitter>=0.23.0",
-    "tree-sitter-javascript>=0.23.0",
-    "tree-sitter-typescript>=0.23.0",
+    "tree-sitter>=0.23.0; python_version>='3.9'",
+    "tree-sitter-javascript>=0.23.0; python_version>='3.9'",
+    "tree-sitter-typescript>=0.23.0; python_version>='3.9'",
 ]
 graph = [
-    "networkx>=3.0",
+    "networkx>=3.0; python_version>='3.10'",
 ]
 fast = [
-    "ast-grep-py>=0.40.0",
+    "ast-grep-py>=0.40.0; python_version>='3.9'",
 ]
 mcp = [
-    "mcp>=1.0.0",
+    "mcp>=1.0.0; python_version>='3.10'",
 ]
 all = [
-    "tree-sitter>=0.23.0",
-    "tree-sitter-javascript>=0.23.0",
-    "tree-sitter-typescript>=0.23.0",
-    "networkx>=3.0",
-    "ast-grep-py>=0.40.0",
-    "mcp>=1.0.0",
+    "tree-sitter>=0.23.0; python_version>='3.9'",
+    "tree-sitter-javascript>=0.23.0; python_version>='3.9'",
+    "tree-sitter-typescript>=0.23.0; python_version>='3.9'",
+    "networkx>=3.0; python_version>='3.10'",
+    "ast-grep-py>=0.40.0; python_version>='3.9'",
+    "mcp>=1.0.0; python_version>='3.10'",
 ]
 
 [project.urls]
-Homepage = "https://github.com/efrenbl/claude-code-navigator"
-Documentation = "https://github.com/efrenbl/claude-code-navigator#readme"
-Repository = "https://github.com/efrenbl/claude-code-navigator.git"
-Issues = "https://github.com/efrenbl/claude-code-navigator/issues"
-Changelog = "https://github.com/efrenbl/claude-code-navigator/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/efrenbl/code-navigator"
+Documentation = "https://github.com/efrenbl/code-navigator#readme"
+Repository = "https://github.com/efrenbl/code-navigator.git"
+Issues = "https://github.com/efrenbl/code-navigator/issues"
+Changelog = "https://github.com/efrenbl/code-navigator/blob/main/CHANGELOG.md"
 
 [project.scripts]
 # Primary CLI (recommended)
@@ -94,10 +96,11 @@ cnv = "codenav.cli:main"  # Short alias
 # MCP Server
 codenav-mcp = "codenav.mcp:main"
 
-# Legacy commands (deprecated, maintained for backward compatibility)
-code-nav = "codenav.code_navigator:main"
-code-search = "codenav.code_search:main"
-code-read = "codenav.line_reader:main"
+# DEPRECATED: Legacy commands - will be REMOVED in v3.0.0
+# Use `codenav map`, `codenav search`, `codenav read` instead
+# code-nav = "codenav.code_navigator:main"
+# code-search = "codenav.code_search:main"
+# code-read = "codenav.line_reader:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

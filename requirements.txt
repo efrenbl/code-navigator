@@ -1,4 +1,4 @@
-# Claude Code Navigator - Requirements
+# Code Navigator - Requirements
 # No external dependencies required! Uses only Python standard library.
 #
 # This file exists for compatibility with tools that expect requirements.txt
