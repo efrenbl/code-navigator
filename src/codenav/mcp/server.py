@@ -113,7 +113,7 @@ def get_handler() -> "CodenavToolHandler":
 class CodenavToolHandler:
     """Handles execution of Codenav MCP tools."""
 
-    def __init__(self, workspace_root: Optional[str] = None):
+    def __init__(self, workspace_root: str | None = None):
         self.workspace_root = workspace_root or os.getcwd()
         self._code_map_cache: dict[str, dict] = {}
         self._navigator_cache: dict[str, CodeNavigator] = {}
@@ -427,11 +427,13 @@ def codenav_get_hubs(
         hubs = []
         for file_path, count in import_counts.items():
             if count >= min_imports:
-                hubs.append({
-                    "file": file_path,
-                    "imports": count,
-                    "symbols": file_symbols.get(file_path, []),
-                })
+                hubs.append(
+                    {
+                        "file": file_path,
+                        "imports": count,
+                        "symbols": file_symbols.get(file_path, []),
+                    }
+                )
 
         hubs = sorted(hubs, key=lambda x: x["imports"], reverse=True)[:top_n]
         return handler._format_hubs_compact(hubs)
@@ -672,14 +674,14 @@ def find_entry_points(path: str) -> str:
 # ==============================================================================
 
 
-def create_server(workspace_root: Optional[str] = None) -> FastMCP:
+def create_server(workspace_root: str | None = None) -> FastMCP:
     """Create and return the MCP server instance."""
     global _handler
     _handler = CodenavToolHandler(workspace_root)
     return mcp
 
 
-async def run_server(workspace_root: Optional[str] = None):
+async def run_server(workspace_root: str | None = None):
     """Run the MCP server using stdio transport."""
     global _handler
     _handler = CodenavToolHandler(workspace_root)
