@@ -16,17 +16,28 @@ pip install codenav[mcp]
 pip install -e ".[mcp]"
 ```
 
-### 2. Configure Claude Code
+### 2. Configure Claude Code (CLI)
 
-Add to `~/.claude/settings.json`:
+Add to `~/.claude/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "codenav": {
+      "command": "codenav-mcp"
+    }
+  }
+}
+```
+
+Or with explicit Python path:
 
 ```json
 {
   "mcpServers": {
     "codenav": {
       "command": "python",
-      "args": ["-m", "codenav.mcp"],
-      "env": {}
+      "args": ["-m", "codenav.mcp"]
     }
   }
 }
@@ -280,17 +291,27 @@ Codenav responses are designed for minimal token usage:
 | `CODENAV_CACHE_DIR` | Directory for cached maps | `.codenav/` |
 | `CODENAV_LOG_LEVEL` | Logging level | `INFO` |
 
-### Claude Code Settings
+### Claude Code CLI (`~/.claude/mcp.json`)
 
 ```json
 {
   "mcpServers": {
     "codenav": {
-      "command": "python",
-      "args": ["-m", "codenav.mcp", "--workspace", "/path/to/project"],
-      "env": {
-        "CODENAV_LOG_LEVEL": "DEBUG"
-      }
+      "command": "codenav-mcp",
+      "args": ["--workspace", "/path/to/project"]
+    }
+  }
+}
+```
+
+### Claude Code VS Code (`settings.json`)
+
+```json
+{
+  "claude.mcpServers": {
+    "codenav": {
+      "command": "codenav-mcp",
+      "args": ["--workspace", "/path/to/project"]
     }
   }
 }
@@ -312,13 +333,15 @@ For Claude Desktop on macOS, add to `~/Library/Application Support/Claude/claude
 }
 ```
 
-## Skills.sh Integration
+## Verify Installation
 
-Codenav includes a `SKILL.md` manifest for auto-discovery:
+```bash
+# Check the entry point is available
+codenav-mcp --help
 
-1. Copy `SKILL.md` to your skills directory
-2. Claude will automatically recognize Codenav capabilities
-3. The skill triggers on relevant queries
+# Test with MCP Inspector
+npx @anthropic/mcp-inspector codenav-mcp
+```
 
 ## Troubleshooting
 
