@@ -80,7 +80,21 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 }
 ```
 
-### 3. Configure Claude Code (VS Code)
+### 3. Configure Claude Code (CLI)
+
+Add to `~/.claude/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "codenav": {
+      "command": "codenav-mcp"
+    }
+  }
+}
+```
+
+### 4. Configure Claude Code (VS Code)
 
 Add to your VS Code `settings.json`:
 
@@ -94,7 +108,17 @@ Add to your VS Code `settings.json`:
 }
 ```
 
-### 4. Use It
+### 5. Verify Installation
+
+```bash
+# Check the entry point is available
+codenav-mcp --help
+
+# Test with MCP Inspector (optional)
+npx @anthropic/mcp-inspector codenav-mcp
+```
+
+### 6. Use It
 
 In Claude, just ask to explore your codebase:
 
