@@ -1,8 +1,13 @@
 # Code Navigator - Requirements
-# No external dependencies required! Uses only Python standard library.
+# Core library has zero runtime dependencies (stdlib only).
 #
-# This file exists for compatibility with tools that expect requirements.txt
-# The package has zero runtime dependencies.
+# Optional extras:
+#   pip install codenav[mcp]    — MCP server (mcp>=1.0.0)
+#   pip install codenav[ast]    — JS/TS tree-sitter support
+#   pip install codenav[graph]  — Dependency graphs (networkx)
+#   pip install codenav[fast]   — ast-grep analyzer
+#   pip install codenav[all]    — Everything
+#   pip install codenav[dev]    — Development tools + MCP
 #
-# For development dependencies, see dev-requirements.txt or install with:
+# For development:
 #   pip install -e ".[dev]"
