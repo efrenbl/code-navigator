@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "codenav"
 version = "2.0.0"
-description = "MCP server for token-efficient code navigation - reduce token usage by 97%"
+description = "Token-efficient code navigation library and MCP server - reduce token usage by 97%"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
@@ -43,12 +43,14 @@ classifiers = [
     "Topic :: Utilities",
 ]
 
-# Core dependencies - MCP is required
-dependencies = [
-    "mcp>=1.0.0",
-]
+# Core library has zero required dependencies (stdlib only).
+# MCP is optional — only needed if you run the standalone MCP server.
+dependencies = []
 
 [project.optional-dependencies]
+mcp = [
+    "mcp>=1.0.0",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
@@ -57,6 +59,7 @@ dev = [
     "mypy>=1.0.0",
     "build>=1.0.0",
     "twine>=4.0.0",
+    "mcp>=1.0.0",
 ]
 ast = [
     "tree-sitter>=0.23.0; python_version>='3.9'",
@@ -70,6 +73,7 @@ fast = [
     "ast-grep-py>=0.40.0",
 ]
 all = [
+    "mcp>=1.0.0",
     "tree-sitter>=0.23.0",
     "tree-sitter-javascript>=0.23.0",
     "tree-sitter-typescript>=0.23.0",
@@ -85,12 +89,12 @@ Issues = "https://github.com/efrenbl/code-navigator/issues"
 Changelog = "https://github.com/efrenbl/code-navigator/blob/main/CHANGELOG.md"
 
 [project.scripts]
-# MCP Server (primary)
-codenav-mcp = "codenav.mcp:main"
-
-# CLI (secondary)
+# CLI (primary — always available, no extra deps)
 codenav = "codenav.cli:main"
 cnv = "codenav.cli:main"  # Short alias
+
+# MCP Server (requires: pip install codenav[mcp])
+codenav-mcp = "codenav.mcp:main"
 
 # DEPRECATED: Legacy commands - will be REMOVED in v3.0.0
 # Use `codenav map`, `codenav search`, `codenav read` instead

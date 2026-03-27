@@ -1,0 +1,20 @@
+name: Trigger kmlp-mcp deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'pyproject.toml'
+
+jobs:
+  trigger-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger kmlp-mcp rebuild
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.KMLP_DEPLOY_TOKEN }}
+          repository: kueski-dev/kmlp-mcp
+          event-type: code-navigator-updated
+          client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
