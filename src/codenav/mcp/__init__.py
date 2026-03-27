@@ -25,9 +25,7 @@ except ImportError:
     run_server = None  # type: ignore
 
     def main():  # type: ignore
-        raise SystemExit(
-            "MCP dependencies not installed. Install with: pip install codenav[mcp]"
-        )
+        raise SystemExit("MCP dependencies not installed. Install with: pip install codenav[mcp]")
 
 
 __all__ = [
