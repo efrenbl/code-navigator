@@ -218,6 +218,7 @@ def codenav_scan(
     path: str,
     ignore_patterns: list[str] | None = None,
     git_only: bool = False,
+    use_gitignore: bool = False,
     max_depth: int = 0,
 ) -> str:
     """Scan a codebase and generate a structural map with all symbols.
@@ -230,6 +231,7 @@ def codenav_scan(
         path: Root directory to scan (absolute or relative path)
         ignore_patterns: Glob patterns to ignore (e.g., ['*.test.py', 'vendor/'])
         git_only: Only scan files tracked by git
+        use_gitignore: Also ignore patterns from .gitignore
         max_depth: Maximum directory depth to display (0=unlimited)
 
     Returns:
@@ -243,6 +245,7 @@ def codenav_scan(
             abs_path,
             ignore_patterns=ignore_patterns or [],
             git_only=git_only,
+            use_gitignore=use_gitignore,
         )
         code_map = navigator.scan()
         handler._code_map_cache[abs_path] = code_map
@@ -326,7 +329,7 @@ def codenav_read(
     start_line: int,
     end_line: int,
     context: int = 0,
-) -> str:
+) -> dict:
     """Read specific lines from a file with optional context.
 
     Use this after finding a symbol's location to read its implementation.
@@ -339,7 +342,8 @@ def codenav_read(
         context: Additional lines before/after the range
 
     Returns:
-        The requested lines with line numbers
+        Dict with file, requested/actual ranges, total_lines, and lines
+        (each line has num, content, in_range fields)
     """
     handler = get_handler()
 
