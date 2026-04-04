@@ -749,6 +749,21 @@ def format_search_output(
         if not result:
             return c.dim("No results found")
 
+        # Detect file search results (have 'total_symbols' key, no 'type' key)
+        if result[0].get("total_symbols") is not None and "type" not in result[0]:
+            output = []
+            for item in result:
+                file_path = c.cyan(item.get("file", "?"))
+                symbols = item.get("symbols", {})
+                if symbols:
+                    breakdown = ", ".join(
+                        f"{c.magenta(t)}: {n}" for t, n in sorted(symbols.items())
+                    )
+                    output.append(f"{file_path}  {c.dim(f'({breakdown})')}")
+                else:
+                    output.append(f"{file_path}  {c.dim('(empty)')}")
+            return "\n".join(output)
+
         output = []
         for item in result:
             sym_type = c.magenta(f"[{item.get('type', '?')}]")
