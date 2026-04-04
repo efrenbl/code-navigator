@@ -754,7 +754,6 @@ def format_search_output(
             output = []
             for item in result:
                 file_path = c.cyan(item.get("file", "?"))
-                total = item.get("total_symbols", 0)
                 symbols = item.get("symbols", {})
                 if symbols:
                     breakdown = ", ".join(
