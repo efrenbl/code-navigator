@@ -3,7 +3,7 @@
 
 This module provides a single entry point `codenav` with subcommands for all
 codenav functionality:
-    - codenav map: Generate a code map of a codebase
+    - codenav map (or scan): Generate a code map of a codebase
     - codenav search: Search for symbols in the code map
     - codenav read: Read specific lines from files
     - codenav stats: Show codebase statistics (shortcut for search --stats)
@@ -63,9 +63,10 @@ def main():
 
     subparsers = parser.add_subparsers(dest="command", metavar="<command>")
 
-    # codenav map
+    # codenav map / codenav scan (alias)
     map_parser = subparsers.add_parser(
         "map",
+        aliases=["scan"],
         help="Generate a code map of a codebase",
         description="Scan a codebase and generate a JSON index of all symbols.",
         epilog="Example: codenav map /my/project -o .codenav.json",
@@ -186,7 +187,7 @@ def main():
         parser.print_help()
         sys.exit(0)
 
-    if args.command == "map":
+    if args.command in ("map", "scan"):
         run_map(args)
     elif args.command == "search":
         run_search(args)
