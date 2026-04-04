@@ -123,7 +123,10 @@ class CodenavToolHandler:
         return Path(path) / ".codenav.json"
 
     def _check_map_exists(self, path: str) -> tuple[bool, str]:
-        """Check if .codenav.json exists and return helpful error if not."""
+        """Check if code map is available (in cache or on disk)."""
+        abs_path = os.path.abspath(path)
+        if abs_path in self._code_map_cache:
+            return True, ""
         map_path = self._get_map_path(path)
         if not map_path.exists():
             return False, (
@@ -249,6 +252,11 @@ def codenav_scan(
         )
         code_map = navigator.scan()
         handler._code_map_cache[abs_path] = code_map
+
+        # Persist to disk so other tools can find it
+        map_path = handler._get_map_path(abs_path)
+        with open(map_path, "w", encoding="utf-8") as f:
+            json.dump(code_map, f, indent=2)
 
         # Use token-efficient rendering if available
         if HAS_RENDERER:
