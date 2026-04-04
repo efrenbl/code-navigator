@@ -175,17 +175,42 @@ flowchart TB
 While the primary use case is via MCP, you can also use the CLI directly:
 
 ```bash
-# Generate code map
+# Generate code map (scan is an alias for map)
+codenav scan .
 codenav map .
 
 # Search for symbols
 codenav search "process_payment"
 
+# Search by type
+codenav search -t class -o table
+
+# Search for files
+codenav search --files "models" -o table
+
 # Read specific lines
 codenav read src/payments.py 45-89
 
+# Read with context lines
+codenav read src/payments.py 45-89 -c 3
+
+# Get file structure
+codenav search --structure src/payments.py
+
+# Get symbol dependencies
+codenav search --deps process_payment
+
 # Get codebase stats
 codenav stats
+
+# Check if map needs updating
+codenav search --check-stale
+
+# Incremental update (only changed files)
+codenav scan --incremental .
+
+# Export as markdown
+codenav export -f markdown -o docs/codebase.md
 ```
 
 ---
