@@ -58,6 +58,7 @@ class TestRubyAnalyzer:
         assert len(funcs) == 1
         assert funcs[0].type == "function"
 
+    @pytest.mark.skipif(not TREE_SITTER_AVAILABLE, reason="inheritance detection requires tree-sitter")
     def test_detect_class_inheritance(self, rb_source):
         analyzer = RubyAnalyzer("sample_ruby.rb", rb_source)
         symbols = analyzer.analyze()
