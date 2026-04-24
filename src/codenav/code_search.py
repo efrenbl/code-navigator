@@ -31,6 +31,26 @@ from .colors import get_colors
 
 __version__ = "1.2.0"
 
+# Pattern to detect catastrophic regex constructs (nested quantifiers)
+_CATASTROPHIC_RE = re.compile(r'\([^)]*[+*]\)[+*]')
+
+
+def _safe_regex_compile(pattern: str) -> re.Pattern:
+    """Compile a regex pattern with validation against ReDoS.
+
+    Raises:
+        ValueError: If the pattern is invalid or contains catastrophic constructs.
+    """
+    if _CATASTROPHIC_RE.search(pattern):
+        raise ValueError(
+            f"Regex pattern rejected: contains nested quantifiers "
+            f"that could cause ReDoS: {pattern!r}"
+        )
+    try:
+        return re.compile(pattern, re.IGNORECASE)
+    except re.error as e:
+        raise ValueError(f"Invalid regex pattern: {e}") from None
+
 
 @dataclass
 class SearchResult:
@@ -176,6 +196,9 @@ class CodeSearcher:
         results = []
         query_lower = query.lower()
 
+        # Pre-compile file pattern for safety and performance
+        file_regex = _safe_regex_compile(file_pattern) if file_pattern else None
+
         index = self.code_map.get("index", {})
 
         # Direct lookup for exact matches
@@ -183,7 +206,7 @@ class CodeSearcher:
             for entry in index[query_lower]:
                 if symbol_type and entry["type"] != symbol_type:
                     continue
-                if file_pattern and not re.search(file_pattern, entry["file"], re.IGNORECASE):
+                if file_regex and not file_regex.search(entry["file"]):
                     continue
 
                 file_info = self.code_map["files"].get(entry["file"], {})
@@ -205,7 +228,7 @@ class CodeSearcher:
         # Fuzzy search if enabled and more results needed
         if (not results or fuzzy) and len(results) < limit:
             for file_path, file_info in self.code_map.get("files", {}).items():
-                if file_pattern and not re.search(file_pattern, file_path, re.IGNORECASE):
+                if file_regex and not file_regex.search(file_path):
                     continue
 
                 for sym in file_info.get("symbols", []):
@@ -270,9 +293,10 @@ class CodeSearcher:
             ...     print(f"{f['file']}: {f['total_symbols']} symbols")
         """
         results = []
+        compiled_pattern = _safe_regex_compile(pattern)
 
         for file_path, file_info in self.code_map.get("files", {}).items():
-            if re.search(pattern, file_path, re.IGNORECASE):
+            if compiled_pattern.search(file_path):
                 symbols_summary = {}
                 for sym in file_info.get("symbols", []):
                     sym_type = sym["type"]
@@ -463,9 +487,10 @@ class CodeSearcher:
             ...     print(f"{c.name} in {c.file}:{c.lines[0]}")
         """
         results = []
+        file_regex = _safe_regex_compile(file_pattern) if file_pattern else None
 
         for file_path, file_info in self.code_map.get("files", {}).items():
-            if file_pattern and not re.search(file_pattern, file_path, re.IGNORECASE):
+            if file_regex and not file_regex.search(file_path):
                 continue
 
             for sym in file_info.get("symbols", []):
@@ -570,6 +595,10 @@ class CodeSearcher:
         root = root_path or self.code_map.get("root", "")
         if not root or not os.path.isdir(root):
             return {"error": f"Root path not found: {root}", "changed_files": []}
+
+        # Validate commit reference to prevent command injection
+        if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.~^/@{}\-]*', commit):
+            raise ValueError(f"Invalid git reference: {commit}")
 
         # Get changed files from git
         try:

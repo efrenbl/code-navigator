@@ -16,6 +16,7 @@ Example:
 """
 
 import json
+import sys
 
 __version__ = "1.3.0"
 
@@ -349,5 +350,5 @@ def run_completion(shell: str) -> None:
     elif shell == "zsh":
         print(generate_zsh_completion())
     else:
-        print(f"Unknown shell: {shell}. Supported: bash, zsh", file=__import__("sys").stderr)
-        __import__("sys").exit(1)
+        print(f"Unknown shell: {shell}. Supported: bash, zsh", file=sys.stderr)
+        sys.exit(1)

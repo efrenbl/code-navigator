@@ -25,8 +25,10 @@ import ast
 import fnmatch
 import json
 import os
+import re
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -603,11 +605,17 @@ class GitIntegration:
         """Get files that changed since a specific commit.
 
         Args:
-            commit: Git commit reference (hash, branch, tag, HEAD~N, etc.)
+            commit: Git commit hash (7-40 hex characters).
 
         Returns:
             Set of relative file paths that have changed.
+
+        Raises:
+            ValueError: If commit is not a valid hex hash.
         """
+        if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.~^/@{}\-]*', commit):
+            raise ValueError(f"Invalid git reference: {commit}")
+
         if not self.available:
             return set()
 
@@ -824,11 +832,15 @@ class CodeNavigator:
             print(f"Error analyzing {file_path}: {e}", file=sys.stderr)
             return []
 
+    # Maximum time allowed for a scan operation (seconds)
+    SCAN_TIMEOUT = 30
+
     def scan(self) -> dict[str, Any]:
         """Scan the entire codebase and generate a code map.
 
         Returns:
             Dict containing the complete code map with files, index, and stats.
+            Includes 'scan_timeout': True if the operation was cut short.
 
         Example:
             >>> mapper = CodeNavigator('/my/project')
@@ -845,7 +857,14 @@ class CodeNavigator:
             elif self._git_tracked_files:
                 print(f"  Git tracked files: {len(self._git_tracked_files)}", file=sys.stderr)
 
+        scan_start = time.monotonic()
+        timed_out = False
+
         for root, dirs, files in os.walk(self.root_path):
+            if time.monotonic() - scan_start > self.SCAN_TIMEOUT:
+                timed_out = True
+                print("Warning: scan timed out, returning partial results", file=sys.stderr)
+                break
             dirs[:] = [d for d in dirs if not self.should_ignore(Path(root) / d)]
 
             for file in files:
@@ -864,6 +883,8 @@ class CodeNavigator:
                     self.stats["files_processed"] += 1
 
         self.stats["symbols_found"] = len(self.symbols)
+        if timed_out:
+            self.stats["scan_timeout"] = True
         return self.generate_map()
 
     def get_current_file_hash(self, file_path: Path) -> str | None:

@@ -32,6 +32,10 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Security limits
+MAX_LIMIT = 200
+MAX_DEPTH = 10
+
 # ==============================================================================
 # SYSTEM PROMPT - Instructions for AI agents
 # ==============================================================================
@@ -242,6 +246,11 @@ def codenav_scan(
     """
     handler = get_handler()
 
+    # Clamp max_depth to safe bounds
+    if max_depth <= 0:
+        max_depth = MAX_DEPTH
+    max_depth = max(1, min(max_depth, MAX_DEPTH))
+
     try:
         abs_path = os.path.abspath(path)
         navigator = CodeNavigator(
@@ -301,6 +310,10 @@ def codenav_search(
         Compact list: file:L{start}-{end} [type] name
     """
     handler = get_handler()
+
+    # Clamp limit to safe bounds
+    limit = max(1, min(limit, MAX_LIMIT))
+
     search_path = os.path.abspath(path or handler.workspace_root)
 
     # Check if map exists
