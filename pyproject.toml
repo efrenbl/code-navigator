@@ -65,6 +65,9 @@ ast = [
     "tree-sitter>=0.23.0; python_version>='3.9'",
     "tree-sitter-javascript>=0.23.0; python_version>='3.9'",
     "tree-sitter-typescript>=0.23.0; python_version>='3.9'",
+    "tree-sitter-ruby>=0.23.0; python_version>='3.9'",
+    "tree-sitter-go>=0.23.0; python_version>='3.9'",
+    "tree-sitter-rust>=0.23.0; python_version>='3.9'",
 ]
 graph = [
     "networkx>=3.0",
@@ -77,6 +80,9 @@ all = [
     "tree-sitter>=0.23.0",
     "tree-sitter-javascript>=0.23.0",
     "tree-sitter-typescript>=0.23.0",
+    "tree-sitter-ruby>=0.23.0",
+    "tree-sitter-go>=0.23.0",
+    "tree-sitter-rust>=0.23.0",
     "networkx>=3.0",
     "ast-grep-py>=0.40.0",
 ]

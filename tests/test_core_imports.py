@@ -52,6 +52,21 @@ class TestCoreImports:
         assert isinstance(result, str)
         assert len(result) == 12
 
+    def test_ruby_analyzer_import(self):
+        from codenav import RubyAnalyzer
+
+        assert RubyAnalyzer is not None
+
+    def test_go_analyzer_import(self):
+        from codenav import GoAnalyzer
+
+        assert GoAnalyzer is not None
+
+    def test_rust_analyzer_import(self):
+        from codenav import RustAnalyzer
+
+        assert RustAnalyzer is not None
+
     def test_feature_flags_available(self):
         from codenav import HAS_NETWORKX, TREE_SITTER_AVAILABLE
 
@@ -103,3 +118,15 @@ class TestDirectModuleImports:
     def test_watcher_module(self):
         mod = importlib.import_module("codenav.watcher")
         assert hasattr(mod, "CodenavWatcher")
+
+    def test_ruby_analyzer_module(self):
+        mod = importlib.import_module("codenav.ruby_analyzer")
+        assert hasattr(mod, "RubyAnalyzer")
+
+    def test_go_analyzer_module(self):
+        mod = importlib.import_module("codenav.go_analyzer")
+        assert hasattr(mod, "GoAnalyzer")
+
+    def test_rust_analyzer_module(self):
+        mod = importlib.import_module("codenav.rust_analyzer")
+        assert hasattr(mod, "RustAnalyzer")
