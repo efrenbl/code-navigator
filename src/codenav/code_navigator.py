@@ -446,9 +446,9 @@ class GenericAnalyzer:
             "type_alias": r"type\s+(\w+)\s+(?!struct\b|interface\b)\w+",
         },
         "ruby": {
-            "function": r"def\s+(\w+[!?=]?)",
-            "class": r"class\s+(\w+)",
-            "module": r"module\s+(\w+)",
+            "function": r"^[ \t]*def\s+(?!self\.)(\w+[!?=]?)",
+            "class": r"^[ \t]*class\s+([A-Z]\w*)",
+            "module": r"^[ \t]*module\s+([A-Z]\w*)",
         },
         "rust": {
             "function": r"(?:pub\s+)?(?:async\s+)?fn\s+(\w+)",

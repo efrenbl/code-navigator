@@ -67,6 +67,7 @@ class TestRustAnalyzer:
         assert "fetch_data" in names
         assert "test_user_new" in names
 
+    @pytest.mark.skipif(not TREE_SITTER_AVAILABLE, reason="impl methods require tree-sitter")
     def test_detect_method_in_impl(self, rs_source):
         analyzer = RustAnalyzer("sample_rust.rs", rs_source)
         symbols = analyzer.analyze()
