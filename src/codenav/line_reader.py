@@ -68,6 +68,13 @@ class LineReader:
             ValueError: If the resolved path escapes the root directory
                        (path traversal attempt).
         """
+        # Security check: reject symlinked root paths to prevent traversal attacks
+        if self.root_path.is_symlink():
+            raise PermissionError(
+                f"Security error: root path '{self.root_path}' is a symlink. "
+                "Symlinked root paths are not allowed."
+            )
+
         path = Path(file_path)
         if not path.is_absolute():
             path = self.root_path / path
@@ -390,8 +397,14 @@ class LineReader:
         matches = []
         try:
             regex = re.compile(pattern, re.IGNORECASE)
-        except re.error:
-            regex = re.compile(re.escape(pattern), re.IGNORECASE)
+        except re.error as e:
+            return {
+                "error": f"Invalid regex pattern: {e}",
+                "file": file_path,
+                "pattern": pattern,
+                "matches": 0,
+                "sections": [],
+            }
 
         for i, line in enumerate(all_lines):
             if regex.search(line):

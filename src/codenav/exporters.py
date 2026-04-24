@@ -466,7 +466,7 @@ class GraphVizExporter(BaseExporter):
                 node_ids[(file_path, sym["name"])] = node_id
 
                 color = type_colors.get(sym["type"], "#dfe6e9")
-                label = f"{sym['name']}\\n[{sym['type']}]"
+                label = f"{self._escape_dot(sym['name'])}\\n[{self._escape_dot(sym['type'])}]"
 
                 lines.append(f'        {node_id} [label="{label}", fillcolor="{color}"];')
 
