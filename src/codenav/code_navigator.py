@@ -439,10 +439,16 @@ class GenericAnalyzer:
             "method": r"(?:public|private|protected)?\s*(?:static\s+)?(?:\w+(?:<[^>]*>)?)\s+(\w+)\s*\([^)]*\)",
         },
         "go": {
-            "function": r"func\s+(\w+)\s*\([^)]*\)",
-            "method": r"func\s+\([^)]+\)\s+(\w+)\s*\([^)]*\)",
+            "function": r"func\s+(\w+)\s*(?:\[[^\]]*\])?\s*\(",
+            "method": r"func\s+\([^)]+\)\s+(\w+)\s*(?:\[[^\]]*\])?\s*\(",
             "struct": r"type\s+(\w+)\s+struct",
             "interface": r"type\s+(\w+)\s+interface",
+            "type_alias": r"type\s+(\w+)\s+(?!struct\b|interface\b)\w+",
+        },
+        "ruby": {
+            "function": r"^[ \t]*def\s+(?!self\.)(\w+[!?=]?)",
+            "class": r"^[ \t]*class\s+([A-Z]\w*)",
+            "module": r"^[ \t]*module\s+([A-Z]\w*)",
         },
         "rust": {
             "function": r"(?:pub\s+)?(?:async\s+)?fn\s+(\w+)",
@@ -455,6 +461,24 @@ class GenericAnalyzer:
 
     # Maximum lines to scan for a symbol's end before giving up
     MAX_SYMBOL_LINES = 500
+
+    # Languages that use 'end' keyword instead of braces for block termination
+    KEYWORD_END_LANGUAGES = {"ruby"}
+
+    # Keywords that open a new block in end-based languages
+    _END_OPENERS = (
+        "def ",
+        "class ",
+        "module ",
+        "do",
+        "if ",
+        "unless ",
+        "while ",
+        "until ",
+        "for ",
+        "begin",
+        "case ",
+    )
 
     def __init__(self, file_path: str, source: str, language: str):
         """Initialize the generic analyzer.
@@ -486,20 +510,46 @@ class GenericAnalyzer:
                 line_num = self.source[: match.start()].count("\n") + 1
 
                 line_end = line_num
-                brace_count = 0
-                started = False
                 was_truncated = False
-                for i, line in enumerate(self.lines[line_num - 1 :], start=line_num):
-                    brace_count += line.count("{") - line.count("}")
-                    if "{" in line:
-                        started = True
-                    if started and brace_count <= 0:
-                        line_end = i
-                        break
-                    if i > line_num + self.MAX_SYMBOL_LINES:
-                        line_end = i
-                        was_truncated = True  # Symbol exceeded max line limit
-                        break
+
+                if self.language in self.KEYWORD_END_LANGUAGES:
+                    # Keyword-based end detection (Ruby: def/class/module ... end)
+                    depth = 1
+                    for i, line in enumerate(self.lines[line_num:], start=line_num + 1):
+                        stripped = line.strip()
+                        if not stripped.startswith("#"):
+                            for kw in self._END_OPENERS:
+                                if stripped.startswith(kw) or stripped == kw.strip():
+                                    depth += 1
+                                    break
+                            if (
+                                stripped == "end"
+                                or stripped.startswith("end ")
+                                or stripped.startswith("end;")
+                            ):
+                                depth -= 1
+                                if depth <= 0:
+                                    line_end = i
+                                    break
+                        if i > line_num + self.MAX_SYMBOL_LINES:
+                            line_end = i
+                            was_truncated = True
+                            break
+                else:
+                    # Brace-based end detection (Go, JS, Java, Rust, C/C++)
+                    brace_count = 0
+                    started = False
+                    for i, line in enumerate(self.lines[line_num - 1 :], start=line_num):
+                        brace_count += line.count("{") - line.count("}")
+                        if "{" in line:
+                            started = True
+                        if started and brace_count <= 0:
+                            line_end = i
+                            break
+                        if i > line_num + self.MAX_SYMBOL_LINES:
+                            line_end = i
+                            was_truncated = True
+                            break
 
                 symbols.append(
                     Symbol(
@@ -820,6 +870,18 @@ class CodeNavigator:
 
                 is_tsx = file_path.suffix.lower() in (".tsx",)
                 analyzer = TypeScriptAnalyzer(rel_path, content, is_tsx=is_tsx)
+            elif language == "ruby":
+                from .ruby_analyzer import RubyAnalyzer
+
+                analyzer = RubyAnalyzer(rel_path, content)
+            elif language == "go":
+                from .go_analyzer import GoAnalyzer
+
+                analyzer = GoAnalyzer(rel_path, content)
+            elif language == "rust":
+                from .rust_analyzer import RustAnalyzer
+
+                analyzer = RustAnalyzer(rel_path, content)
             elif language:
                 analyzer = GenericAnalyzer(rel_path, content, language)
             else:

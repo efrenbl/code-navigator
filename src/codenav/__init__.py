@@ -50,12 +50,15 @@ from .code_navigator import CodeNavigator, GenericAnalyzer, GitIntegration, Pyth
 from .code_search import CodeSearcher, SearchResult
 from .completions import generate_bash_completion, generate_zsh_completion
 from .exporters import GraphVizExporter, HTMLExporter, MarkdownExporter, get_exporter
+from .go_analyzer import GoAnalyzer
 from .js_ts_analyzer import (
     TREE_SITTER_AVAILABLE,
     JavaScriptAnalyzer,
     TypeScriptAnalyzer,
 )
 from .line_reader import LineReader
+from .ruby_analyzer import RubyAnalyzer
+from .rust_analyzer import RustAnalyzer
 from .watcher import CodenavWatcher
 
 # Optional dependency: networkx for DependencyGraph
@@ -166,6 +169,9 @@ __all__ = [
     "GenericAnalyzer",
     "JavaScriptAnalyzer",
     "TypeScriptAnalyzer",
+    "RubyAnalyzer",
+    "GoAnalyzer",
+    "RustAnalyzer",
     # Exporters
     "MarkdownExporter",
     "HTMLExporter",

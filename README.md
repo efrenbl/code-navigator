@@ -261,17 +261,18 @@ If you have multiple Python installations:
 
 | Language | Analysis Type | Quality |
 |----------|---------------|---------|
-| Python | Full AST | ⭐⭐⭐⭐⭐ |
+| Python | Full AST (stdlib) | ⭐⭐⭐⭐⭐ |
 | JavaScript | AST (tree-sitter)* | ⭐⭐⭐⭐⭐ |
 | TypeScript | AST (tree-sitter)* | ⭐⭐⭐⭐⭐ |
+| Ruby | AST (tree-sitter)* | ⭐⭐⭐⭐ |
+| Go | AST (tree-sitter)* | ⭐⭐⭐⭐ |
+| Rust | AST (tree-sitter)* | ⭐⭐⭐⭐ |
 | Java | Regex-based | ⭐⭐⭐ |
-| Go | Regex-based | ⭐⭐⭐ |
-| Rust | Regex-based | ⭐⭐⭐ |
 | C/C++ | Regex-based | ⭐⭐⭐ |
-| Ruby | Regex-based | ⭐⭐⭐ |
 | PHP | Regex-based | ⭐⭐⭐ |
 
 *Install tree-sitter support: `pip install codenav[ast]`
+All tree-sitter analyzers fall back to regex when tree-sitter is not installed.
 
 ---
 
