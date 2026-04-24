@@ -613,7 +613,7 @@ class GitIntegration:
         Raises:
             ValueError: If commit is not a valid hex hash.
         """
-        if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.~^/@{}\-]*', commit):
+        if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.~^/@{}\-]*", commit):
             raise ValueError(f"Invalid git reference: {commit}")
 
         if not self.available:

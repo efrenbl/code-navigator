@@ -32,7 +32,7 @@ from .colors import get_colors
 __version__ = "1.2.0"
 
 # Pattern to detect catastrophic regex constructs (nested quantifiers)
-_CATASTROPHIC_RE = re.compile(r'\([^)]*[+*]\)[+*]')
+_CATASTROPHIC_RE = re.compile(r"\([^)]*[+*]\)[+*]")
 
 
 def _safe_regex_compile(pattern: str) -> re.Pattern:
@@ -597,7 +597,7 @@ class CodeSearcher:
             return {"error": f"Root path not found: {root}", "changed_files": []}
 
         # Validate commit reference to prevent command injection
-        if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.~^/@{}\-]*', commit):
+        if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.~^/@{}\-]*", commit):
             raise ValueError(f"Invalid git reference: {commit}")
 
         # Get changed files from git
