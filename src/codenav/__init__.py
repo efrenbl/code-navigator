@@ -49,6 +49,7 @@ import hashlib
 from .code_navigator import CodeNavigator, GenericAnalyzer, GitIntegration, PythonAnalyzer, Symbol
 from .code_search import CodeSearcher, SearchResult
 from .completions import generate_bash_completion, generate_zsh_completion
+from .dart_analyzer import DartAnalyzer
 from .exporters import GraphVizExporter, HTMLExporter, MarkdownExporter, get_exporter
 from .go_analyzer import GoAnalyzer
 from .js_ts_analyzer import (
@@ -172,6 +173,7 @@ __all__ = [
     "RubyAnalyzer",
     "GoAnalyzer",
     "RustAnalyzer",
+    "DartAnalyzer",
     # Exporters
     "MarkdownExporter",
     "HTMLExporter",

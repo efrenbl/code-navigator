@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes.
+### Added
+- **Dart/Flutter support** — new `DartAnalyzer` with optional tree-sitter AST
+  analysis plus a regex fallback that works out-of-the-box. Recognizes
+  classes, mixins, enums, extensions, methods (with parent), constructors,
+  and top-level functions.
+- **Flutter build artifact filtering** — `.dart_tool/`, `.flutter-plugins*`,
+  `*.g.dart`, `*.freezed.dart`, `*.gr.dart` added to `DEFAULT_IGNORE_PATTERNS`.
+- **`scripts/build_dart_grammar.sh`** — cross-platform helper that compiles
+  the tree-sitter Dart grammar into a shared library (auto-detects
+  `.so` / `.dylib` / `.dll`).
+- **`CODENAV_DART_LIB_PATH`** env var to override the Dart grammar location.
+- New symbol types exposed by the Dart analyzer: `mixin`, `extension`,
+  `constructor`. Existing consumers that filter on a closed set of types
+  may want to update their filters.
 
 ## [1.4.1] - 2026-01-21
 

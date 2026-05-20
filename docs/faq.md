@@ -92,17 +92,15 @@ codenav map tests/ -o .codenav-tests.json
 ### Which languages are fully supported?
 
 **Full AST analysis (best accuracy):**
-- Python
+- Python (stdlib `ast`, always on)
+- JavaScript / TypeScript / Ruby / Go / Rust — via tree-sitter (`pip install codenav[ast]`)
+- Dart / Flutter — via tree-sitter, opt-in (see `scripts/build_dart_grammar.sh`)
 
-**Regex-based analysis (good accuracy):**
-- JavaScript
-- TypeScript
-- Java
-- Go
-- Rust
-- C/C++
-- Ruby
-- PHP
+**Regex-based fallback (good accuracy, zero extra deps):**
+- JavaScript, TypeScript, Java, Go, Rust, Ruby, C/C++, PHP, Dart
+
+All tree-sitter analyzers fall back to regex transparently if tree-sitter
+or the relevant grammar is not installed.
 
 ### Why is Python support better?
 

@@ -68,6 +68,9 @@ ast = [
     "tree-sitter-ruby>=0.23.0; python_version>='3.9'",
     "tree-sitter-go>=0.23.0; python_version>='3.9'",
     "tree-sitter-rust>=0.23.0; python_version>='3.9'",
+    # tree-sitter-dart: no PyPI release compatible with tree-sitter>=0.23.
+    # Build the grammar locally with `bash scripts/build_dart_grammar.sh`.
+    # Without it, Dart files are analyzed via the regex GenericAnalyzer.
 ]
 graph = [
     "networkx>=3.0",
