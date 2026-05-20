@@ -5,6 +5,11 @@ __pycache__/
 
 # C extensions
 *.so
+*.dylib
+*.dll
+
+# tree-sitter native grammars (compiled locally via scripts/, never committed)
+src/codenav/dart.*
 
 # Distribution / packaging
 .Python

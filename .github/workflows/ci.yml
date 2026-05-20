@@ -98,6 +98,43 @@ jobs:
         print('Core imports OK without MCP installed')
         "
 
+  # Validate Dart AST path by compiling the tree-sitter Dart grammar locally
+  # and running the Dart tests with TREE_SITTER_AVAILABLE=True. Non-blocking:
+  # the rest of the matrix already covers the regex-fallback path.
+  dart-ast:
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install codenav with tree-sitter
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev,ast]"
+
+    - name: Compile tree-sitter-dart grammar
+      run: bash scripts/build_dart_grammar.sh
+
+    - name: Verify Dart grammar loaded
+      run: |
+        python -c "
+        from codenav.dart_analyzer import TREE_SITTER_AVAILABLE
+        assert TREE_SITTER_AVAILABLE, 'Dart tree-sitter grammar failed to load'
+        print('Dart AST grammar loaded OK')
+        "
+
+    - name: Run Dart analyzer tests (AST path)
+      run: pytest tests/test_dart_analyzer.py -v --tb=short
+
   build:
     runs-on: ubuntu-latest
     needs: [test, lint, test-core-no-mcp]

@@ -117,4 +117,5 @@ Surgical precision for reading code:
 | Java       | Regex-based   | ⭐⭐⭐    |
 | Go         | Regex-based   | ⭐⭐⭐    |
 | Rust       | Regex-based   | ⭐⭐⭐    |
+| Dart       | Regex (AST opt-in) | ⭐⭐⭐⭐ |
 | C/C++      | Regex-based   | ⭐⭐⭐    |

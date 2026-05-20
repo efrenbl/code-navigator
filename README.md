@@ -267,12 +267,36 @@ If you have multiple Python installations:
 | Ruby | AST (tree-sitter)* | ⭐⭐⭐⭐ |
 | Go | AST (tree-sitter)* | ⭐⭐⭐⭐ |
 | Rust | AST (tree-sitter)* | ⭐⭐⭐⭐ |
+| Dart / Flutter | AST (tree-sitter, opt-in)** | ⭐⭐⭐⭐ |
 | Java | Regex-based | ⭐⭐⭐ |
 | C/C++ | Regex-based | ⭐⭐⭐ |
 | PHP | Regex-based | ⭐⭐⭐ |
 
 *Install tree-sitter support: `pip install codenav[ast]`
 All tree-sitter analyzers fall back to regex when tree-sitter is not installed.
+
+**Dart works out-of-the-box via regex. AST analysis requires building the
+grammar locally — see [Dart/Flutter setup](#dartflutter-setup) below.
+
+### Dart/Flutter setup
+
+`tree-sitter-dart` has no PyPI release compatible with `tree-sitter>=0.23`,
+so codenav does not ship a pre-compiled grammar. Dart files are still
+analyzed via regex out-of-the-box (classes, mixins, enums, extensions,
+top-level functions).
+
+To enable AST-level analysis (parented methods, constructors, accurate
+signatures), build the grammar locally:
+
+```bash
+# Requires: git + clang or gcc
+bash scripts/build_dart_grammar.sh
+```
+
+The script auto-detects your OS (Linux `.so`, macOS `.dylib`, Windows `.dll`)
+and drops the library next to the package. To install it elsewhere, set
+`CODENAV_DART_LIB_PATH=/path/to/dart.so` before running the script — codenav
+honors the same env var at runtime.
 
 ---
 
