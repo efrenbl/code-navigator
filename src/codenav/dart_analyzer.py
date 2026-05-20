@@ -39,6 +39,8 @@ import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .code_navigator import GenericAnalyzer, Symbol
+
 if TYPE_CHECKING:
     from tree_sitter import Node
 
@@ -100,8 +102,6 @@ def _load_dart_language():
 
 _DART_LANGUAGE = _load_dart_language()
 TREE_SITTER_AVAILABLE = _DART_LANGUAGE is not None
-
-from .code_navigator import GenericAnalyzer, Symbol
 
 
 class DartAnalyzer:
