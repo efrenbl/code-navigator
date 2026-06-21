@@ -187,10 +187,9 @@ jobs:
         pip install -e ".[dev,ast,dart]"
 
     - name: Run analyzer + call-extraction tests (AST path)
-      run: |
-        pytest tests/test_call_extraction.py tests/test_js_ts_analyzer.py \
-          tests/test_go_analyzer.py tests/test_rust_analyzer.py \
-          tests/test_ruby_analyzer.py tests/test_dart_analyzer.py -v --tb=short
+      # Single line: backslash continuation is not portable to the Windows
+      # runner's PowerShell shell.
+      run: pytest tests/test_call_extraction.py tests/test_js_ts_analyzer.py tests/test_go_analyzer.py tests/test_rust_analyzer.py tests/test_ruby_analyzer.py tests/test_dart_analyzer.py -v --tb=short
 
   build:
     runs-on: ubuntu-latest
