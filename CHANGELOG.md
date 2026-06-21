@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-06-21
+
+### Fixed
+- **UTF-8 byte-offset corruption in tree-sitter analyzers** — JavaScript,
+  TypeScript, Go, Rust and Dart sliced source text with tree-sitter's byte
+  offsets against the source *string*, so any multi-byte character (emoji,
+  accents — common in comments, string literals, i18n) earlier in a file
+  misaligned every later slice and corrupted symbol names, parents and
+  dependencies. Analyzers now slice an encoded `source_bytes` view and decode.
+  The ast-grep and regex paths were never affected. (Found by running
+  `codenav map` on a real Rust repository.)
+
 ## [2.2.0] - 2026-06-21
 
 ### Added
@@ -260,6 +272,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 2.2.1 | 2026-06-21 | Fix UTF-8 byte-offset corruption of names/deps in tree-sitter analyzers |
 | 2.2.0 | 2026-06-21 | Coverage metrics; ast-grep wiring (Java/C/C++/PHP); calls/deps for AST langs |
 | 2.1.0 | 2026-06-21 | Dart/Flutter AST via tree-sitter-dart; TS class/dedup & PageRank fixes |
 | 1.4.1 | 2026-01-21 | Security audit fixes: path traversal, TOCTOU, atomic writes |
@@ -286,7 +299,8 @@ None at this time.
 
 ---
 
-[Unreleased]: https://github.com/efrenbl/code-navigator/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/efrenbl/code-navigator/compare/v2.2.1...HEAD
+[2.2.1]: https://github.com/efrenbl/code-navigator/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/efrenbl/code-navigator/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/efrenbl/code-navigator/compare/v1.4.1...v2.1.0
 [1.4.1]: https://github.com/efrenbl/code-navigator/compare/v1.4.0...v1.4.1
