@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-06-21
+
+### Added
+- **Mapping coverage metrics** — `scan` and `scan_incremental` now report
+  `files_skipped`, `files_unmapped`, `unmapped_extensions` (per-extension
+  breakdown), `symbols_truncated` and `coverage_pct`. Existing stats keys are
+  unchanged, so `.codenav.json` stays backward compatible. `codenav map` prints
+  a one-line summary, e.g. `mapped 636 · unmapped 12 (.kt:8 .sh:4) · skipped
+  1204 · coverage 98.2%`. Makes missing languages and over-broad ignore
+  patterns observable.
+- **ast-grep wiring for Java / C / C++ / PHP** — the languages without a
+  dedicated grammar are upgraded from regex to a real AST parse, with
+  method→class parent linkage, when the optional `codenav[fast]` extra
+  (`ast-grep-py`) is installed. Without it they use the regex fallback exactly
+  as before (core stays zero-dependency).
+- **Call / dependency extraction in the tree-sitter analyzers** — JavaScript,
+  TypeScript, Go, Rust and Dart now populate `Symbol.dependencies` with the
+  names each function/method calls (previously Python-only), enriching
+  `CodeSearcher.find_dependencies`. New shared `call_extraction` module.
+- **Configurable symbol-scan cap** — `--max-symbol-lines` (CLI) /
+  `max_symbol_lines` (`CodeNavigator`, default 500) so large functions need not
+  be truncated by the regex analyzer.
+
+### Changed
+- README: dynamic version badge (tracks the latest GitHub release) and a new
+  "Mapping coverage" section; corrected a stale note that claimed the retired
+  `code-map`/`code-search`/`code-read` commands still work.
+
+### CI
+- New `astgrep` and `ast-langs` jobs exercise the ast-grep and tree-sitter AST
+  paths (including call extraction) across Linux/macOS/Windows; the default
+  matrix continues to cover the regex-fallback path.
+
 ## [2.1.0] - 2026-06-21
 
 ### Added
@@ -227,6 +260,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 2.2.0 | 2026-06-21 | Coverage metrics; ast-grep wiring (Java/C/C++/PHP); calls/deps for AST langs |
 | 2.1.0 | 2026-06-21 | Dart/Flutter AST via tree-sitter-dart; TS class/dedup & PageRank fixes |
 | 1.4.1 | 2026-01-21 | Security audit fixes: path traversal, TOCTOU, atomic writes |
 | 1.4.0 | 2026-01-20 | Aggressive Claude Code integration |
@@ -252,7 +286,8 @@ None at this time.
 
 ---
 
-[Unreleased]: https://github.com/efrenbl/code-navigator/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/efrenbl/code-navigator/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/efrenbl/code-navigator/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/efrenbl/code-navigator/compare/v1.4.1...v2.1.0
 [1.4.1]: https://github.com/efrenbl/code-navigator/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/efrenbl/code-navigator/compare/v1.3.0...v1.4.0
