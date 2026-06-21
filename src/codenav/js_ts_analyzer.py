@@ -80,6 +80,9 @@ class JavaScriptAnalyzer:
         """
         self.file_path = file_path
         self.source = source
+        # tree-sitter reports UTF-8 byte offsets; keep an encoded view so node
+        # text slicing stays correct when the file has multi-byte characters.
+        self.source_bytes = source.encode("utf-8")
         self.is_jsx = is_jsx
         self.lines = source.split("\n")
         self.symbols: list[Symbol] = []
@@ -148,7 +151,7 @@ class JavaScriptAnalyzer:
         Returns:
             The text content of the node.
         """
-        return self.source[node.start_byte : node.end_byte]
+        return self.source_bytes[node.start_byte : node.end_byte].decode("utf-8", "replace")
 
     def _get_identifier_name(self, node: "Node") -> str | None:
         """Get the identifier name from a node.
@@ -202,7 +205,7 @@ class JavaScriptAnalyzer:
                 line_start=node.start_point[0] + 1,
                 line_end=node.end_point[0] + 1,
                 signature=signature[:100],
-                dependencies=collect_calls(node, self.source),
+                dependencies=collect_calls(node, self.source_bytes),
             )
         )
 
@@ -290,7 +293,7 @@ class JavaScriptAnalyzer:
                 line_end=node.end_point[0] + 1,
                 signature=signature[:100],
                 parent=self._current_class,
-                dependencies=collect_calls(node, self.source),
+                dependencies=collect_calls(node, self.source_bytes),
             )
         )
 
@@ -347,7 +350,7 @@ class JavaScriptAnalyzer:
                 line_start=node.start_point[0] + 1,
                 line_end=node.end_point[0] + 1,
                 signature=signature[:100],
-                dependencies=collect_calls(value, self.source),
+                dependencies=collect_calls(value, self.source_bytes),
             )
         )
 

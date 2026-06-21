@@ -85,6 +85,36 @@ class TestDartCalls:
         assert _deps(syms, "top") == {"compute"}
 
 
+class TestUtf8ByteOffsets:
+    """Regression: tree-sitter reports UTF-8 byte offsets. A multi-byte char
+    (emoji, accent) before a symbol must not misalign name/deps slicing."""
+
+    @pytest.mark.skipif(not JS_TS, reason="tree-sitter JS grammar not installed")
+    def test_js_names_and_deps_intact_after_emoji(self):
+        src = "// 🚀 rocket\nfunction discoverSessions() { totalCount(); }\n"
+        syms = JavaScriptAnalyzer("a.js", src).analyze()
+        assert _deps(syms, "discoverSessions") == {"totalCount"}
+
+    @pytest.mark.skipif(not GO_TS, reason="tree-sitter Go grammar not installed")
+    def test_go_names_intact_after_accent(self):
+        src = "package p\n// café ☕\nfunc Discover() { fetchAll() }\n"
+        syms = GoAnalyzer("a.go", src).analyze()
+        assert _deps(syms, "Discover") == {"fetchAll"}
+
+    @pytest.mark.skipif(not RUST_TS, reason="tree-sitter Rust grammar not installed")
+    def test_rust_names_intact_after_emoji(self):
+        src = "// 🚀\nfn discover_sessions() { total_count(); }\n"
+        syms = RustAnalyzer("a.rs", src).analyze()
+        assert {s.name for s in syms} == {"discover_sessions"}
+        assert _deps(syms, "discover_sessions") == {"total_count"}
+
+    @pytest.mark.skipif(not DART_TS, reason="tree-sitter Dart grammar not installed")
+    def test_dart_names_intact_after_emoji(self):
+        src = "// 🚀\nclass A { void build() { helper(); } }"
+        syms = DartAnalyzer("a.dart", src).analyze()
+        assert _deps(syms, "build") == {"helper"}
+
+
 @pytest.mark.skipif(not JS_TS, reason="tree-sitter JS grammar not installed")
 def test_dependencies_surface_in_code_map(tmp_path):
     """End-to-end: deps reach the generated .codenav.json (deps field)."""

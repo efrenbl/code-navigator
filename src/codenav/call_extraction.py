@@ -37,29 +37,32 @@ _ACCESS_TYPES = frozenset(
 MAX_CALLS = 50
 
 
-def _text(node, source: str) -> str:
-    return source[node.start_byte : node.end_byte]
+def _text(node, source_bytes: bytes) -> str:
+    # tree-sitter offsets are UTF-8 byte offsets; slice the encoded bytes and
+    # decode so multi-byte characters earlier in the file don't misalign names.
+    return source_bytes[node.start_byte : node.end_byte].decode("utf-8", "replace")
 
 
-def _callee_name(fn, source: str) -> str | None:
+def _callee_name(fn, source_bytes: bytes) -> str | None:
     """Resolve the callee name from a call's ``function`` node."""
     if fn is None:
         return None
     if fn.type in _NAME_TYPES:
-        return _text(fn, source)
+        return _text(fn, source_bytes)
     if fn.type in _ACCESS_TYPES:
         for child in reversed(fn.children):
             if child.type in _NAME_TYPES:
-                return _text(child, source)
+                return _text(child, source_bytes)
     return None
 
 
-def collect_calls(node, source: str, *, macro_types: tuple[str, ...] = ()) -> list[str]:
+def collect_calls(node, source_bytes: bytes, *, macro_types: tuple[str, ...] = ()) -> list[str]:
     """Return sorted unique callee names within a function/method subtree.
 
     Args:
         node: The function/method AST node to walk (its whole subtree).
-        source: The full source text (for byte-offset slicing).
+        source_bytes: The full source as UTF-8 bytes (tree-sitter offsets are
+            byte offsets).
         macro_types: Extra node kinds whose ``macro`` field is a callee
             (e.g. Rust ``macro_invocation``).
     """
@@ -70,34 +73,34 @@ def collect_calls(node, source: str, *, macro_types: tuple[str, ...] = ()) -> li
     while stack:
         n = stack.pop()
         if n.type == "call_expression":
-            name = _callee_name(n.child_by_field_name("function"), source)
+            name = _callee_name(n.child_by_field_name("function"), source_bytes)
             if name:
                 calls.add(name)
         elif macro_types and n.type in macro_types:
-            name = _callee_name(n.child_by_field_name("macro"), source)
+            name = _callee_name(n.child_by_field_name("macro"), source_bytes)
             if name:
                 calls.add(name)
         stack.extend(n.children)
     return sorted(calls)[:MAX_CALLS]
 
 
-def _dart_callee(prev, source: str) -> str | None:
+def _dart_callee(prev, source_bytes: bytes) -> str | None:
     """The callee for a Dart ``argument_part`` selector is the node before it:
     a bare ``identifier`` (``foo()``) or a ``.name`` selector (``obj.bar()``)."""
     if prev is None:
         return None
     if prev.type == "identifier":
-        return _text(prev, source)
+        return _text(prev, source_bytes)
     if prev.type == "selector":
         for gc in prev.children:
             if gc.type == "unconditional_assignable_selector":
                 for ggc in gc.children:
                     if ggc.type == "identifier":
-                        return _text(ggc, source)
+                        return _text(ggc, source_bytes)
     return None
 
 
-def collect_dart_calls(body, source: str) -> list[str]:
+def collect_dart_calls(body, source_bytes: bytes) -> list[str]:
     """Return sorted unique callee names within a Dart ``function_body``."""
     if body is None:
         return []
@@ -110,7 +113,7 @@ def collect_dart_calls(body, source: str) -> list[str]:
             if child.type == "selector" and any(
                 gc.type == "argument_part" for gc in child.children
             ):
-                name = _dart_callee(children[i - 1] if i > 0 else None, source)
+                name = _dart_callee(children[i - 1] if i > 0 else None, source_bytes)
                 if name:
                     calls.add(name)
         stack.extend(children)
