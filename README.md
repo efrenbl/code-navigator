@@ -275,28 +275,26 @@ If you have multiple Python installations:
 *Install tree-sitter support: `pip install codenav[ast]`
 All tree-sitter analyzers fall back to regex when tree-sitter is not installed.
 
-**Dart works out-of-the-box via regex. AST analysis requires building the
-grammar locally — see [Dart/Flutter setup](#dartflutter-setup) below.
+**Dart works out-of-the-box via regex. AST analysis ships pre-compiled via
+`pip install codenav[dart]` — see [Dart/Flutter setup](#dartflutter-setup) below.
 
 ### Dart/Flutter setup
 
-`tree-sitter-dart` has no PyPI release compatible with `tree-sitter>=0.23`,
-so codenav does not ship a pre-compiled grammar. Dart files are still
-analyzed via regex out-of-the-box (classes, mixins, enums, extensions,
-top-level functions).
-
-To enable AST-level analysis (parented methods, constructors, accurate
-signatures), build the grammar locally:
+Dart files are analyzed via regex out-of-the-box (classes, mixins, enums,
+extensions, top-level functions). To enable AST-level analysis (parented
+methods, constructors, accurate signatures), install the optional grammar:
 
 ```bash
-# Requires: git + clang or gcc
-bash scripts/build_dart_grammar.sh
+pip install "codenav[dart]"
 ```
 
-The script auto-detects your OS (Linux `.so`, macOS `.dylib`, Windows `.dll`)
-and drops the library next to the package. To install it elsewhere, set
-`CODENAV_DART_LIB_PATH=/path/to/dart.so` before running the script — codenav
-honors the same env var at runtime.
+The Dart grammar ships via
+[`tree-sitter-dart`](https://pypi.org/project/tree-sitter-dart/), which provides
+pre-compiled wheels for Linux, macOS and Windows — no C compiler or manual build
+step required. It loads through the standard tree-sitter interface, exactly like
+the other languages. Flutter needs no separate grammar: Flutter widgets are
+ordinary Dart classes. `[dart]` is its own extra so it can evolve independently;
+if it is not installed, codenav transparently falls back to the regex analyzer.
 
 ---
 

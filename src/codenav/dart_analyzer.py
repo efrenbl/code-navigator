@@ -1,21 +1,15 @@
 """Dart/Flutter analyzer using tree-sitter for AST-based symbol extraction.
 
-Falls back to regex-based GenericAnalyzer when tree-sitter-dart is not installed
-or its compiled grammar shared library cannot be located.
+Falls back to regex-based GenericAnalyzer when the tree-sitter Dart grammar is
+not installed.
 
-Why this analyzer ships *without* a pre-built native binary:
-    There is no `tree-sitter-dart` package on PyPI compatible with
-    tree-sitter>=0.23. Committing a pre-compiled `.so` / `.dylib` / `.dll`
-    binary into the package is platform-specific and creates portability and
-    security issues. Instead, this module loads a locally compiled grammar
-    if one is present (see scripts/build_dart_grammar.sh) and otherwise
-    transparently falls back to the regex-based GenericAnalyzer.
-
-Resolution order for the native grammar (first match wins):
-    1. ``$CODENAV_DART_LIB_PATH`` environment variable.
-    2. ``<package_dir>/dart.<ext>`` where ``<ext>`` is ``so`` on Linux,
-       ``dylib`` on macOS, ``dll`` on Windows.
-    3. ``~/.codenav/lib/dart.<ext>``.
+The Dart grammar ships via ``tree-sitter-dart``, a pip-installable package that
+provides pre-compiled grammar wheels for Linux, macOS and Windows — no C
+compiler and no manual build step required. It exposes the standard
+``py-tree-sitter`` interface (``Language(tree_sitter_dart.language())``), so this
+analyzer loads and traverses the AST exactly like the Go/JS/TS/Ruby/Rust
+analyzers (``.type``, ``.children``, ``.start_point``). Flutter needs no separate
+grammar: Flutter widgets are ordinary Dart classes covered by this same grammar.
 
 Example:
     >>> from codenav.dart_analyzer import DartAnalyzer
@@ -32,11 +26,7 @@ Example:
     MyWidget
 """
 
-import ctypes
-import os
 import sys
-import warnings
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .code_navigator import GenericAnalyzer, Symbol
@@ -45,63 +35,14 @@ if TYPE_CHECKING:
     from tree_sitter import Node
 
 try:
+    import tree_sitter_dart
     from tree_sitter import Language, Parser
 
-    _TREE_SITTER_IMPORT_OK = True
+    _DART_LANGUAGE = Language(tree_sitter_dart.language())
+    TREE_SITTER_AVAILABLE = True
 except ImportError:
-    _TREE_SITTER_IMPORT_OK = False
-
-
-def _native_lib_extension() -> str:
-    """Return the shared-library extension for the current platform."""
-    if sys.platform.startswith("linux"):
-        return "so"
-    if sys.platform == "darwin":
-        return "dylib"
-    if sys.platform.startswith("win"):
-        return "dll"
-    return "so"
-
-
-def _candidate_lib_paths() -> list[Path]:
-    """Return ordered list of candidate paths to look up the Dart grammar.
-
-    Order matters: explicit env override first, then package-local, then
-    a per-user cache location.
-    """
-    ext = _native_lib_extension()
-    candidates: list[Path] = []
-
-    env_override = os.environ.get("CODENAV_DART_LIB_PATH")
-    if env_override:
-        candidates.append(Path(env_override))
-
-    candidates.append(Path(__file__).parent / f"dart.{ext}")
-    candidates.append(Path.home() / ".codenav" / "lib" / f"dart.{ext}")
-    return candidates
-
-
-def _load_dart_language():
-    """Load the Dart tree-sitter Language object, or return ``None``."""
-    if not _TREE_SITTER_IMPORT_OK:
-        return None
-
-    for path in _candidate_lib_paths():
-        if not path.is_file():
-            continue
-        try:
-            lib = ctypes.CDLL(str(path))
-            lib.tree_sitter_dart.restype = ctypes.c_void_p
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", DeprecationWarning)
-                return Language(lib.tree_sitter_dart())
-        except (OSError, AttributeError, Exception):
-            continue
-    return None
-
-
-_DART_LANGUAGE = _load_dart_language()
-TREE_SITTER_AVAILABLE = _DART_LANGUAGE is not None
+    _DART_LANGUAGE = None
+    TREE_SITTER_AVAILABLE = False
 
 
 class DartAnalyzer:

@@ -14,13 +14,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and top-level functions.
 - **Flutter build artifact filtering** — `.dart_tool/`, `.flutter-plugins*`,
   `*.g.dart`, `*.freezed.dart`, `*.gr.dart` added to `DEFAULT_IGNORE_PATTERNS`.
-- **`scripts/build_dart_grammar.sh`** — cross-platform helper that compiles
-  the tree-sitter Dart grammar into a shared library (auto-detects
-  `.so` / `.dylib` / `.dll`).
-- **`CODENAV_DART_LIB_PATH`** env var to override the Dart grammar location.
+- **Pre-compiled Dart grammar** — the Dart tree-sitter grammar now ships via
+  `tree-sitter-dart` behind a dedicated `codenav[dart]` extra, providing wheels
+  for Linux/macOS/Windows. No C compiler or manual build step is required to
+  enable AST-level Dart analysis. It loads through the standard tree-sitter
+  interface like every other language (no adapter), and Flutter is covered by
+  the same grammar (Flutter widgets are ordinary Dart classes).
 - New symbol types exposed by the Dart analyzer: `mixin`, `extension`,
   `constructor`. Existing consumers that filter on a closed set of types
   may want to update their filters.
+
+### Fixed
+- **TypeScript class detection** — classes were silently dropped because the
+  TypeScript grammar names them with a `type_identifier` node (not
+  `identifier`); `abstract class` declarations were not handled at all
+  (`abstract_class_declaration` node). Both are now detected.
+- **Duplicate class methods** — JS/TS methods were emitted twice (the class
+  extractor walked the class body *and* the generic node recursion re-visited
+  it). Methods are now extracted once, with the correct parent.
+- **PageRank crash without SciPy** — `networkx.pagerank` requires the optional
+  SciPy/NumPy backend; the `graph` extra now declares them, and
+  `_compute_pagerank` degrades to uniform scores instead of raising when they
+  are absent.
 
 ## [1.4.1] - 2026-01-21
 

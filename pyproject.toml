@@ -68,12 +68,25 @@ ast = [
     "tree-sitter-ruby>=0.23.0; python_version>='3.9'",
     "tree-sitter-go>=0.23.0; python_version>='3.9'",
     "tree-sitter-rust>=0.23.0; python_version>='3.9'",
-    # tree-sitter-dart: no PyPI release compatible with tree-sitter>=0.23.
-    # Build the grammar locally with `bash scripts/build_dart_grammar.sh`.
-    # Without it, Dart files are analyzed via the regex GenericAnalyzer.
+]
+dart = [
+    # Dart/Flutter grammar ships pre-compiled via tree-sitter-dart, which
+    # provides wheels for Linux/macOS/Windows (no C compiler or manual build
+    # step). Without it, Dart falls back to the regex analyzer. Flutter needs
+    # no separate grammar — Flutter widgets are ordinary Dart classes.
+    # tree-sitter-dart declares the `tree-sitter` runtime binding only as an
+    # optional `core` extra, so we pin it here too — otherwise `[dart]` alone
+    # installs the grammar but not the binding, and the AST path silently
+    # degrades to regex (TREE_SITTER_AVAILABLE stays False).
+    "tree-sitter>=0.23.0; python_version>='3.9'",
+    "tree-sitter-dart>=0.1.0; python_version>='3.9'",
 ]
 graph = [
     "networkx>=3.0",
+    # networkx computes PageRank via its SciPy backend; without SciPy/NumPy
+    # `nx.pagerank` raises ModuleNotFoundError at runtime.
+    "scipy>=1.10",
+    "numpy>=1.23",
 ]
 fast = [
     "ast-grep-py>=0.40.0",
@@ -86,7 +99,10 @@ all = [
     "tree-sitter-ruby>=0.23.0",
     "tree-sitter-go>=0.23.0",
     "tree-sitter-rust>=0.23.0",
+    "tree-sitter-dart>=0.1.0",
     "networkx>=3.0",
+    "scipy>=1.10",
+    "numpy>=1.23",
     "ast-grep-py>=0.40.0",
 ]
 
