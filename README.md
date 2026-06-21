@@ -2,7 +2,7 @@
   <img src="https://img.shields.io/badge/MCP-1.0+-blue.svg" alt="MCP 1.0+">
   <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License">
-  <img src="https://img.shields.io/badge/version-2.0.0-orange.svg" alt="Version 2.0.0">
+  <img src="https://img.shields.io/github/v/release/efrenbl/code-navigator?label=version&color=orange" alt="Latest release">
 </p>
 
 <h1 align="center">🧭 Code Navigator</h1>

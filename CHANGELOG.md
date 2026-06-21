@@ -128,7 +128,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated skill file with new CLI documentation
 
 ### Backward Compatibility
-- Legacy commands (`code-map`, `code-search`, `code-read`) still work
+- The legacy `code-map` / `code-search` / `code-read` entry points have been
+  retired (use `codenav map` / `codenav search` / `codenav read`); they are
+  commented out in `pyproject.toml` and will be removed entirely in v3.0.0
 - Existing `.codenav.json` files are fully compatible
 - JS/TS analysis falls back to regex if tree-sitter not installed
 
