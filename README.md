@@ -268,15 +268,36 @@ If you have multiple Python installations:
 | Go | AST (tree-sitter)* | ⭐⭐⭐⭐ |
 | Rust | AST (tree-sitter)* | ⭐⭐⭐⭐ |
 | Dart / Flutter | AST (tree-sitter, opt-in)** | ⭐⭐⭐⭐ |
-| Java | Regex-based | ⭐⭐⭐ |
-| C/C++ | Regex-based | ⭐⭐⭐ |
-| PHP | Regex-based | ⭐⭐⭐ |
+| Java | Regex, or AST (ast-grep)† | ⭐⭐⭐ → ⭐⭐⭐⭐ |
+| C/C++ | Regex, or AST (ast-grep)† | ⭐⭐⭐ → ⭐⭐⭐⭐ |
+| PHP | Regex, or AST (ast-grep)† | ⭐⭐⭐ → ⭐⭐⭐⭐ |
 
 *Install tree-sitter support: `pip install codenav[ast]`
 All tree-sitter analyzers fall back to regex when tree-sitter is not installed.
 
 **Dart works out-of-the-box via regex. AST analysis ships pre-compiled via
 `pip install codenav[dart]` — see [Dart/Flutter setup](#dartflutter-setup) below.
+
+†The languages without a dedicated grammar (Java, C, C++, PHP) are upgraded
+from regex to a real AST parse — with method→class parent linkage — when the
+optional ast-grep engine is installed: `pip install codenav[fast]`. Without it
+they use the regex analyzer.
+
+### Mapping coverage
+
+`codenav map` reports how much of a tree it actually mapped. The scan stats
+include `files_processed`, `files_unmapped` (with a per-extension breakdown in
+`unmapped_extensions`), `files_skipped` (ignored), `symbols_truncated` and a
+`coverage_pct`. The CLI prints a one-line summary, e.g.:
+
+```
+Coverage: mapped 636 · unmapped 12 (.kt:8 .sh:4) · skipped 1204 · coverage 98.2%
+```
+
+Use it to spot languages you're missing (a big `.cs`/`.kt` bucket) or an ignore
+pattern that's eating real source. The per-symbol cap for the regex analyzer is
+configurable with `--max-symbol-lines` (default 500) when large functions are
+being truncated.
 
 ### Dart/Flutter setup
 
