@@ -74,6 +74,11 @@ dart = [
     # provides wheels for Linux/macOS/Windows (no C compiler or manual build
     # step). Without it, Dart falls back to the regex analyzer. Flutter needs
     # no separate grammar — Flutter widgets are ordinary Dart classes.
+    # tree-sitter-dart declares the `tree-sitter` runtime binding only as an
+    # optional `core` extra, so we pin it here too — otherwise `[dart]` alone
+    # installs the grammar but not the binding, and the AST path silently
+    # degrades to regex (TREE_SITTER_AVAILABLE stays False).
+    "tree-sitter>=0.23.0; python_version>='3.9'",
     "tree-sitter-dart>=0.1.0; python_version>='3.9'",
 ]
 graph = [

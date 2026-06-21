@@ -118,6 +118,86 @@ class TestDartAnalyzer:
             assert s.line_end >= s.line_start
 
 
+DART3_SAMPLE = """\
+sealed class Shape {}
+
+final class Circle extends Shape {
+  final double radius;
+  Circle(this.radius);
+}
+
+base class Square extends Shape {
+  final double side;
+  Square(this.side);
+}
+
+(int, String) pair() => (1, 'a');
+
+enum Suit {
+  hearts,
+  spades;
+
+  bool get isRed => this == Suit.hearts;
+}
+
+extension NumberParsing on String {
+  int parseInt() => int.parse(this);
+}
+
+double area(Shape s) => switch (s) {
+  Circle(radius: var r) => 3.14 * r * r,
+  Square(side: var x) => x * x,
+};
+"""
+
+
+class TestDartAnalyzerDart3:
+    """Dart 3 features (records, patterns, sealed/final/base classes, enhanced
+    enums, named extensions) must parse via tree-sitter and extract cleanly."""
+
+    @pytest.mark.skipif(not TREE_SITTER_AVAILABLE, reason="tree-sitter-dart not installed")
+    def test_parses_without_error(self):
+        """The whole Dart 3 snippet must parse with no syntax error."""
+        from tree_sitter import Parser
+
+        from codenav.dart_analyzer import _DART_LANGUAGE
+
+        tree = Parser(_DART_LANGUAGE).parse(DART3_SAMPLE.encode("utf-8"))
+        assert tree.root_node.type == "program"
+        assert not tree.root_node.has_error
+
+    @pytest.mark.skipif(not TREE_SITTER_AVAILABLE, reason="tree-sitter-dart not installed")
+    def test_sealed_final_base_classes(self):
+        classes = _names(DartAnalyzer("d3.dart", DART3_SAMPLE).analyze(), "class")
+        assert "Shape" in classes  # sealed
+        assert "Circle" in classes  # final
+        assert "Square" in classes  # base
+
+    @pytest.mark.skipif(not TREE_SITTER_AVAILABLE, reason="tree-sitter-dart not installed")
+    def test_record_returning_function(self):
+        """A function with a record return type `(int, String)` is extracted."""
+        funcs = _names(DartAnalyzer("d3.dart", DART3_SAMPLE).analyze(), "function")
+        assert "pair" in funcs
+
+    @pytest.mark.skipif(not TREE_SITTER_AVAILABLE, reason="tree-sitter-dart not installed")
+    def test_pattern_switch_function(self):
+        """A function whose body is a `switch` with patterns is extracted and
+        its enum/getter members don't leak as top-level functions."""
+        funcs = _names(DartAnalyzer("d3.dart", DART3_SAMPLE).analyze(), "function")
+        assert "area" in funcs
+        assert "isRed" not in funcs  # enhanced-enum getter is not a top-level fn
+
+    @pytest.mark.skipif(not TREE_SITTER_AVAILABLE, reason="tree-sitter-dart not installed")
+    def test_enhanced_enum(self):
+        enums = _names(DartAnalyzer("d3.dart", DART3_SAMPLE).analyze(), "enum")
+        assert "Suit" in enums
+
+    @pytest.mark.skipif(not TREE_SITTER_AVAILABLE, reason="tree-sitter-dart not installed")
+    def test_named_extension(self):
+        ext = _names(DartAnalyzer("d3.dart", DART3_SAMPLE).analyze(), "extension")
+        assert "NumberParsing" in ext
+
+
 class TestDartIntegration:
     """Make sure CodeNavigator scans a project containing .dart files cleanly."""
 
