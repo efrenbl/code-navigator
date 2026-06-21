@@ -291,10 +291,69 @@ class AstGrepAnalyzer:
                 line_start=rng.start.line + 1,  # Convert to 1-indexed
                 line_end=rng.end.line + 1,
                 signature=signature,
+                parent=self._find_parent(match),
             )
 
         except Exception:
             return None
+
+    # AST node kinds that introduce a named scope a member can belong to.
+    _CONTAINER_KINDS = (
+        "class",
+        "interface",
+        "struct",
+        "impl",
+        "trait",
+        "module",
+        "enum",
+        "namespace",
+        "object",
+    )
+
+    def _container_name(self, node: Any) -> str | None:
+        """Best-effort name of a container declaration node."""
+        for field_name in ("name", "type"):
+            try:
+                f = node.field(field_name)
+            except Exception:
+                f = None
+            if f:
+                return f.text().split("\n")[0].strip()
+        try:
+            for child in node.children():
+                if child.kind() in (
+                    "identifier",
+                    "type_identifier",
+                    "constant",
+                    "scoped_identifier",
+                ):
+                    return child.text().strip()
+        except Exception:
+            pass
+        return None
+
+    def _find_parent(self, match: Any) -> str | None:
+        """Climb ancestors to the enclosing type/module and return its name.
+
+        This is the key advantage over the regex fallback: real AST ancestry
+        gives methods a ``parent`` pointing at their class/interface/struct.
+        Returns None for top-level symbols.
+        """
+        try:
+            node = match.parent()
+        except Exception:
+            return None
+        while node is not None:
+            kind = node.kind()
+            if not kind.endswith("_body") and any(k in kind for k in self._CONTAINER_KINDS):
+                name = self._container_name(node)
+                if name:
+                    return name
+            try:
+                node = node.parent()
+            except Exception:
+                break
+        return None
 
     def _extract_name_fallback(self, match: Any, symbol_type: str) -> str | None:
         """Fallback method to extract name from AST node."""

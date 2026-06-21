@@ -495,18 +495,29 @@ class GenericAnalyzer:
         "case ",
     )
 
-    def __init__(self, file_path: str, source: str, language: str):
+    def __init__(
+        self,
+        file_path: str,
+        source: str,
+        language: str,
+        max_symbol_lines: int | None = None,
+    ):
         """Initialize the generic analyzer.
 
         Args:
             file_path: Relative path to the file.
             source: Source code content.
             language: Programming language identifier.
+            max_symbol_lines: Override the per-symbol scan cap. Defaults to
+                ``MAX_SYMBOL_LINES`` (500) when None.
         """
         self.file_path = file_path
         self.source = source
         self.language = language
         self.lines = source.split("\n")
+        self.max_symbol_lines = (
+            max_symbol_lines if max_symbol_lines is not None else self.MAX_SYMBOL_LINES
+        )
 
     def analyze(self) -> list[Symbol]:
         """Analyze the file using regex patterns.
@@ -546,7 +557,7 @@ class GenericAnalyzer:
                                 if depth <= 0:
                                     line_end = i
                                     break
-                        if i > line_num + self.MAX_SYMBOL_LINES:
+                        if i > line_num + self.max_symbol_lines:
                             line_end = i
                             was_truncated = True
                             break
@@ -561,7 +572,7 @@ class GenericAnalyzer:
                         if started and brace_count <= 0:
                             line_end = i
                             break
-                        if i > line_num + self.MAX_SYMBOL_LINES:
+                        if i > line_num + self.max_symbol_lines:
                             line_end = i
                             was_truncated = True
                             break
@@ -579,6 +590,45 @@ class GenericAnalyzer:
                 )
 
         return symbols
+
+
+def _astgrep_to_symbol(ag_symbol: Any) -> Symbol:
+    """Adapt an ``AstGrepSymbol`` to the canonical ``Symbol`` dataclass.
+
+    The ast-grep analyzer carries the same core fields plus ``parent`` (which
+    the regex fallback cannot produce), so wiring it in upgrades the
+    regex-tier languages to real AST symbols.
+    """
+    return Symbol(
+        name=ag_symbol.name,
+        type=ag_symbol.type,
+        file_path=ag_symbol.file_path,
+        line_start=ag_symbol.line_start,
+        line_end=ag_symbol.line_end,
+        signature=ag_symbol.signature,
+        parent=ag_symbol.parent,
+    )
+
+
+def coverage_summary_line(stats: dict[str, Any]) -> str:
+    """Build a one-line, human-readable coverage summary from scan stats.
+
+    Example: ``mapped 636 · unmapped 12 (.kt:8 .sh:4) · skipped 1204 · coverage 98.2%``
+    """
+    parts = [f"mapped {stats.get('files_processed', 0)}"]
+    unmapped = stats.get("files_unmapped", 0)
+    exts = stats.get("unmapped_extensions") or {}
+    if unmapped:
+        top = sorted(exts.items(), key=lambda kv: (-kv[1], kv[0]))[:4]
+        ext_str = " ".join(f"{ext}:{n}" for ext, n in top)
+        parts.append(f"unmapped {unmapped} ({ext_str})" if ext_str else f"unmapped {unmapped}")
+    if stats.get("files_skipped"):
+        parts.append(f"skipped {stats['files_skipped']}")
+    if "coverage_pct" in stats:
+        parts.append(f"coverage {stats['coverage_pct']}%")
+    if stats.get("symbols_truncated"):
+        parts.append(f"truncated {stats['symbols_truncated']}")
+    return " · ".join(parts)
 
 
 class GitIntegration:
@@ -759,6 +809,7 @@ class CodeNavigator:
         ignore_patterns: list[str] = None,
         git_only: bool = False,
         use_gitignore: bool = False,
+        max_symbol_lines: int = 500,
     ):
         """Initialize the code mapper.
 
@@ -767,14 +818,25 @@ class CodeNavigator:
             ignore_patterns: Additional patterns to ignore. Merged with defaults.
             git_only: If True, only scan files tracked by git.
             use_gitignore: If True, also ignore patterns from .gitignore.
+            max_symbol_lines: Per-symbol scan cap for the regex fallback
+                (``GenericAnalyzer``). Raise it to avoid truncating very large
+                functions. Default 500.
         """
         self.root_path = Path(root_path).resolve()
         self.ignore_patterns = list(ignore_patterns or DEFAULT_IGNORE_PATTERNS)
         self.git_only = git_only
         self.use_gitignore = use_gitignore
+        self.max_symbol_lines = max_symbol_lines
         self.symbols: list[Symbol] = []
         self.file_hashes: dict[str, str] = {}
-        self.stats = {"files_processed": 0, "symbols_found": 0, "errors": 0}
+        self.stats = {
+            "files_processed": 0,
+            "symbols_found": 0,
+            "errors": 0,
+            "files_skipped": 0,
+            "files_unmapped": 0,
+            "unmapped_extensions": {},
+        }
         self._existing_map: dict[str, Any] | None = None
 
         # Initialize git integration
@@ -902,7 +964,10 @@ class CodeNavigator:
 
                 analyzer = DartAnalyzer(rel_path, content)
             elif language:
-                analyzer = GenericAnalyzer(rel_path, content, language)
+                # Languages with no dedicated AST analyzer (Java, C, C++, PHP):
+                # use ast-grep when available (real AST → parent linkage,
+                # better signatures), else the regex fallback.
+                return self._analyze_fallback(rel_path, content, language)
             else:
                 return []
 
@@ -912,6 +977,49 @@ class CodeNavigator:
             self.stats["errors"] += 1
             print(f"Error analyzing {file_path}: {e}", file=sys.stderr)
             return []
+
+    def _analyze_fallback(self, rel_path: str, content: str, language: str) -> list[Symbol]:
+        """Analyze a regex-tier language, preferring ast-grep when installed.
+
+        Uses ``AstGrepAnalyzer`` (opt-in via the ``[fast]`` extra) for an
+        AST-level parse with parent linkage; falls back to the regex
+        ``GenericAnalyzer`` when ast-grep is absent, the language is
+        unsupported by it, or it yields nothing.
+        """
+        try:
+            from .ast_grep_analyzer import AstGrepAnalyzer, is_ast_grep_available
+
+            if is_ast_grep_available():
+                ag = AstGrepAnalyzer(rel_path, content, language)
+                if ag.available:
+                    converted = [_astgrep_to_symbol(s) for s in ag.analyze()]
+                    if converted:
+                        return converted
+        except Exception:
+            # Any ast-grep hiccup must not break the scan — degrade to regex.
+            pass
+
+        return GenericAnalyzer(
+            rel_path, content, language, max_symbol_lines=self.max_symbol_lines
+        ).analyze()
+
+    def _count_unmapped(self, file_path: Path) -> None:
+        """Record a file whose extension has no analyzer (coverage metric)."""
+        self.stats["files_unmapped"] += 1
+        ext = file_path.suffix.lower() or "<none>"
+        exts = self.stats["unmapped_extensions"]
+        exts[ext] = exts.get(ext, 0) + 1
+
+    def _finalize_coverage(self, mapped_total: int) -> None:
+        """Compute derived coverage metrics after a scan completes.
+
+        ``coverage_pct`` is mapped files over (mapped + unmapped-by-extension);
+        ignored/skipped files are excluded from the denominator.
+        """
+        self.stats["symbols_found"] = len(self.symbols)
+        self.stats["symbols_truncated"] = sum(1 for s in self.symbols if s.truncated)
+        denom = mapped_total + self.stats["files_unmapped"]
+        self.stats["coverage_pct"] = round(100 * mapped_total / denom, 1) if denom else 100.0
 
     # Maximum time allowed for a scan operation (seconds)
     SCAN_TIMEOUT = 30
@@ -951,10 +1059,12 @@ class CodeNavigator:
             for file in files:
                 file_path = Path(root) / file
                 if self.should_ignore(file_path):
+                    self.stats["files_skipped"] += 1
                     continue
 
                 # Skip if not git-tracked (when git_only mode is enabled)
                 if not self._is_git_tracked(file_path):
+                    self.stats["files_skipped"] += 1
                     continue
 
                 language = self.get_language(file_path)
@@ -962,8 +1072,10 @@ class CodeNavigator:
                     symbols = self.analyze_file(file_path)
                     self.symbols.extend(symbols)
                     self.stats["files_processed"] += 1
+                else:
+                    self._count_unmapped(file_path)
 
-        self.stats["symbols_found"] = len(self.symbols)
+        self._finalize_coverage(self.stats["files_processed"])
         if timed_out:
             self.stats["scan_timeout"] = True
         return self.generate_map()
@@ -1025,6 +1137,9 @@ class CodeNavigator:
             "files_deleted": 0,
             "symbols_found": 0,
             "errors": 0,
+            "files_skipped": 0,
+            "files_unmapped": 0,
+            "unmapped_extensions": {},
         }
 
         # Track which files we've seen in current scan
@@ -1039,11 +1154,13 @@ class CodeNavigator:
             for file in files:
                 file_path = Path(root) / file
                 if self.should_ignore(file_path):
+                    self.stats["files_skipped"] += 1
                     continue
 
                 # Skip symlinks to prevent symlink attacks
                 try:
                     if file_path.is_symlink():
+                        self.stats["files_skipped"] += 1
                         continue
                 except OSError:
                     continue
@@ -1058,6 +1175,8 @@ class CodeNavigator:
                     except OSError:
                         # File disappeared or became inaccessible during scan
                         pass
+                else:
+                    self._count_unmapped(file_path)
 
         # Categorize files
         unchanged_files = []
@@ -1135,7 +1254,9 @@ class CodeNavigator:
         self.stats["files_added"] = len(added_files)
         self.stats["files_modified"] = len(modified_files)
         self.stats["files_deleted"] = len(deleted_files)
-        self.stats["symbols_found"] = len(self.symbols)
+        # Coverage reflects the whole tree: all current recognized files
+        # (unchanged + modified + added) over recognized + unmapped.
+        self._finalize_coverage(len(current_files))
 
         return self.generate_map()
 
@@ -1228,6 +1349,13 @@ def add_map_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--compact", action="store_true", help="Output compact JSON (default: pretty-printed)"
     )
+    parser.add_argument(
+        "--max-symbol-lines",
+        type=int,
+        default=500,
+        help="Per-symbol scan cap for regex-based languages (default: 500). "
+        "Raise it to avoid truncating very large functions.",
+    )
     parser.add_argument("--no-color", action="store_true", help="Disable colored output")
 
 
@@ -1249,6 +1377,7 @@ def run_map(args: argparse.Namespace) -> None:
         ignore_patterns,
         git_only=git_only,
         use_gitignore=use_gitignore,
+        max_symbol_lines=getattr(args, "max_symbol_lines", 500),
     )
 
     output_path = args.output
@@ -1287,6 +1416,10 @@ def run_map(args: argparse.Namespace) -> None:
         print(f"\n{c.success('✓')} Code map generated: {c.cyan(output_path)}", file=sys.stderr)
         print(f"  Files processed: {c.green(str(stats['files_processed']))}", file=sys.stderr)
         print(f"  Symbols found: {c.green(str(stats['symbols_found']))}", file=sys.stderr)
+
+    # Coverage summary (mapped / unmapped-by-extension / skipped / coverage%)
+    if "coverage_pct" in stats:
+        print(f"  Coverage: {c.cyan(coverage_summary_line(stats))}", file=sys.stderr)
 
     summary = {"output": output_path, "stats": stats}
     if args.compact:
