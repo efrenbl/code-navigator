@@ -67,6 +67,8 @@ class GoAnalyzer:
     def __init__(self, file_path: str, source: str):
         self.file_path = file_path
         self.source = source
+        # tree-sitter offsets are UTF-8 byte offsets — slice an encoded view.
+        self.source_bytes = source.encode("utf-8")
         self.lines = source.split("\n")
         self.symbols: list[Symbol] = []
 
@@ -110,7 +112,7 @@ class GoAnalyzer:
             self._visit_node(child)
 
     def _get_node_text(self, node: "Node") -> str:
-        return self.source[node.start_byte : node.end_byte]
+        return self.source_bytes[node.start_byte : node.end_byte].decode("utf-8", "replace")
 
     def _get_child_by_type(self, node: "Node", type_name: str) -> "Node | None":
         for child in node.children:
@@ -167,7 +169,7 @@ class GoAnalyzer:
                 line_start=node.start_point[0] + 1,
                 line_end=node.end_point[0] + 1,
                 signature=signature[:100],
-                dependencies=collect_calls(node, self.source),
+                dependencies=collect_calls(node, self.source_bytes),
             )
         )
 
@@ -213,7 +215,7 @@ class GoAnalyzer:
                 line_end=node.end_point[0] + 1,
                 signature=signature[:100],
                 parent=parent,
-                dependencies=collect_calls(node, self.source),
+                dependencies=collect_calls(node, self.source_bytes),
             )
         )
 

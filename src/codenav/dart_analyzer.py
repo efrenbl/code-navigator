@@ -61,6 +61,8 @@ class DartAnalyzer:
     def __init__(self, file_path: str, source: str):
         self.file_path = file_path
         self.source = source
+        # tree-sitter offsets are UTF-8 byte offsets — slice an encoded view.
+        self.source_bytes = source.encode("utf-8")
         self.lines = source.split("\n")
         self.symbols: list[Symbol] = []
         self._current_class: str | None = None
@@ -115,7 +117,7 @@ class DartAnalyzer:
             self._visit_node(child)
 
     def _get_text(self, node: "Node") -> str:
-        return self.source[node.start_byte : node.end_byte]
+        return self.source_bytes[node.start_byte : node.end_byte].decode("utf-8", "replace")
 
     def _child_by_type(self, node: "Node", *types: str) -> "Node | None":
         for child in node.children:
@@ -249,7 +251,7 @@ class DartAnalyzer:
                 line_start=node.start_point[0] + 1,
                 line_end=node.end_point[0] + 1,
                 signature=f"{ret_type}{name}()"[:100],
-                dependencies=collect_dart_calls(node.next_sibling, self.source),
+                dependencies=collect_dart_calls(node.next_sibling, self.source_bytes),
             )
         )
 
@@ -276,7 +278,7 @@ class DartAnalyzer:
                 line_end=node.end_point[0] + 1,
                 signature=f"{ret_type}{name}()"[:100],
                 parent=self._current_class,
-                dependencies=collect_dart_calls(node.next_sibling, self.source),
+                dependencies=collect_dart_calls(node.next_sibling, self.source_bytes),
             )
         )
 
