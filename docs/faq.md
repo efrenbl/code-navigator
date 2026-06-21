@@ -94,7 +94,7 @@ codenav map tests/ -o .codenav-tests.json
 **Full AST analysis (best accuracy):**
 - Python (stdlib `ast`, always on)
 - JavaScript / TypeScript / Ruby / Go / Rust — via tree-sitter (`pip install codenav[ast]`)
-- Dart / Flutter — via tree-sitter, opt-in (see `scripts/build_dart_grammar.sh`)
+- Dart / Flutter — via tree-sitter (`pip install codenav[dart]`, grammar from tree-sitter-dart)
 
 **Regex-based fallback (good accuracy, zero extra deps):**
 - JavaScript, TypeScript, Java, Go, Rust, Ruby, C/C++, PHP, Dart

@@ -117,7 +117,10 @@ class JavaScriptAnalyzer:
         if node_type == "function_declaration":
             self._extract_function(node)
         elif node_type == "class_declaration":
+            # _extract_class walks the class body itself (with parent context);
+            # return so the generic recursion below doesn't re-visit members.
             self._extract_class(node)
+            return
         elif node_type == "method_definition":
             self._extract_method(node)
         elif node_type == "variable_declaration":
@@ -148,6 +151,10 @@ class JavaScriptAnalyzer:
     def _get_identifier_name(self, node: "Node") -> str | None:
         """Get the identifier name from a node.
 
+        Looks for a plain ``identifier`` first (function/class names in
+        JavaScript) and falls back to ``type_identifier``, which is how the
+        TypeScript grammar names class declarations.
+
         Args:
             node: A tree-sitter AST node.
 
@@ -156,6 +163,9 @@ class JavaScriptAnalyzer:
         """
         for child in node.children:
             if child.type == "identifier":
+                return self._get_node_text(child)
+        for child in node.children:
+            if child.type == "type_identifier":
                 return self._get_node_text(child)
         return None
 
@@ -421,7 +431,12 @@ class TypeScriptAnalyzer(JavaScriptAnalyzer):
         node_type = node.type
 
         # TypeScript-specific node types
-        if node_type == "interface_declaration":
+        if node_type == "abstract_class_declaration":
+            # `abstract class Foo` is a distinct node from `class_declaration`.
+            # _extract_class walks the body itself; return to avoid re-visiting.
+            self._extract_class(node)
+            return
+        elif node_type == "interface_declaration":
             self._extract_interface(node)
         elif node_type == "type_alias_declaration":
             self._extract_type_alias(node)

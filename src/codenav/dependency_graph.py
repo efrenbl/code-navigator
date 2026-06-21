@@ -592,8 +592,11 @@ class DependencyGraph:
                 if path in self.nodes:
                     self.nodes[path].pagerank = score
 
-        except nx.NetworkXError:
-            # Graph has issues (e.g., no edges), assign uniform scores
+        except (nx.NetworkXError, ImportError):
+            # NetworkXError: graph has issues (e.g., no edges).
+            # ImportError: networkx's PageRank needs the optional SciPy/NumPy
+            # backend (declared in the `graph` extra); degrade gracefully
+            # instead of crashing when only networkx is installed.
             uniform = 1.0 / max(len(self.nodes), 1)
             for node in self.nodes.values():
                 node.pagerank = uniform
