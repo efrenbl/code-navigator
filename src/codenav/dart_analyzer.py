@@ -29,6 +29,7 @@ Example:
 import sys
 from typing import TYPE_CHECKING
 
+from .call_extraction import collect_dart_calls
 from .code_navigator import GenericAnalyzer, Symbol
 
 if TYPE_CHECKING:
@@ -248,6 +249,7 @@ class DartAnalyzer:
                 line_start=node.start_point[0] + 1,
                 line_end=node.end_point[0] + 1,
                 signature=f"{ret_type}{name}()"[:100],
+                dependencies=collect_dart_calls(node.next_sibling, self.source),
             )
         )
 
@@ -274,6 +276,7 @@ class DartAnalyzer:
                 line_end=node.end_point[0] + 1,
                 signature=f"{ret_type}{name}()"[:100],
                 parent=self._current_class,
+                dependencies=collect_dart_calls(node.next_sibling, self.source),
             )
         )
 
