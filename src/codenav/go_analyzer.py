@@ -33,6 +33,7 @@ try:
 except ImportError:
     TREE_SITTER_AVAILABLE = False
 
+from .call_extraction import collect_calls
 from .code_navigator import GenericAnalyzer, Symbol
 
 
@@ -166,6 +167,7 @@ class GoAnalyzer:
                 line_start=node.start_point[0] + 1,
                 line_end=node.end_point[0] + 1,
                 signature=signature[:100],
+                dependencies=collect_calls(node, self.source),
             )
         )
 
@@ -211,6 +213,7 @@ class GoAnalyzer:
                 line_end=node.end_point[0] + 1,
                 signature=signature[:100],
                 parent=parent,
+                dependencies=collect_calls(node, self.source),
             )
         )
 

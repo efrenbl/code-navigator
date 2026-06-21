@@ -24,6 +24,8 @@ Installation:
 import sys
 from typing import TYPE_CHECKING
 
+from .call_extraction import collect_calls
+
 if TYPE_CHECKING:
     from tree_sitter import Node
 
@@ -200,6 +202,7 @@ class JavaScriptAnalyzer:
                 line_start=node.start_point[0] + 1,
                 line_end=node.end_point[0] + 1,
                 signature=signature[:100],
+                dependencies=collect_calls(node, self.source),
             )
         )
 
@@ -287,6 +290,7 @@ class JavaScriptAnalyzer:
                 line_end=node.end_point[0] + 1,
                 signature=signature[:100],
                 parent=self._current_class,
+                dependencies=collect_calls(node, self.source),
             )
         )
 
@@ -343,6 +347,7 @@ class JavaScriptAnalyzer:
                 line_start=node.start_point[0] + 1,
                 line_end=node.end_point[0] + 1,
                 signature=signature[:100],
+                dependencies=collect_calls(value, self.source),
             )
         )
 

@@ -164,6 +164,34 @@ jobs:
     - name: Run ast-grep wiring tests (AST path)
       run: pytest tests/test_ast_grep_wiring.py tests/test_coverage_stats.py -v --tb=short
 
+  # Exercise the tree-sitter AST paths for JS/TS/Go/Rust/Dart (the default
+  # matrix runs without these grammars and covers the regex fallback). This is
+  # where call/dependency extraction is validated end to end.
+  ast-langs:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+    - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+    - name: Set up Python
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      with:
+        python-version: '3.11'
+
+    - name: Install codenav with all tree-sitter grammars
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev,ast,dart]"
+
+    - name: Run analyzer + call-extraction tests (AST path)
+      run: |
+        pytest tests/test_call_extraction.py tests/test_js_ts_analyzer.py \
+          tests/test_go_analyzer.py tests/test_rust_analyzer.py \
+          tests/test_ruby_analyzer.py tests/test_dart_analyzer.py -v --tb=short
+
   build:
     runs-on: ubuntu-latest
     needs: [test, lint, test-core-no-mcp]
