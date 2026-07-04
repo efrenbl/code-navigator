@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.2] - 2026-07-04
+
+### Fixed
+- **UTF-8 byte-offset corruption in the Ruby analyzer** — the 2.2.1 fix
+  covered JavaScript, TypeScript, Go, Rust and Dart but missed Ruby, which
+  still sliced the source string with tree-sitter byte offsets. Multi-byte
+  characters (emoji, accents) earlier in a `.rb` file corrupted every later
+  symbol name and signature. Ruby now slices `source_bytes` like the rest.
+
+### Added
+- Regression suite `tests/test_symbol_uniqueness.py` (shared with
+  codegraph-nav): parametrized over all seven analyzers, asserts no analyzer
+  emits duplicate symbols and extraction survives multi-byte characters.
+
 ## [2.2.1] - 2026-06-21
 
 ### Fixed
