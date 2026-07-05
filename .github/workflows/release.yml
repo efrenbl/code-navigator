@@ -1,0 +1,114 @@
+name: Release
+
+# Publish to PyPI via PyPI Trusted Publishing (OIDC) — no API tokens stored.
+#
+# The distribution is named `code-navigator` (the `codenav` name on PyPI
+# belongs to an unrelated project); the import package and CLI commands are
+# still `codenav` / `cnv`.
+#
+# Tagging convention:
+#   v2.2.3-rc1, v2.3.0-beta, ...  (tag contains a hyphen)  -> TestPyPI (rehearsal)
+#   v2.2.3, v2.3.0, ...           (clean version tag)      -> PyPI (real release)
+#
+# One-time setup on the package indexes (cannot be done from CI):
+#   1. PyPI:     add a pending trusted publisher — owner: efrenbl,
+#                repo: code-navigator, workflow: release.yml, environment: pypi
+#   2. TestPyPI: same, with environment: testpypi
+#   3. Create GitHub environments named `pypi` and `testpypi` (optionally with
+#      required reviewers for an approval gate on releases).
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  # Re-run the quality gate on the exact tagged commit before publishing.
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install all extras + dev
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all,dev]"
+      - name: Lint (ruff + black)
+        run: |
+          ruff check src/ tests/
+          black --check src/ tests/
+      - name: Test suite
+        run: pytest tests/ --tb=short
+
+  build:
+    needs: [gate]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+      - name: Build sdist + wheel
+        run: python -m build
+      - name: Validate metadata
+        run: twine check --strict dist/*
+      - name: Verify tag matches package version
+        run: |
+          PKG_VERSION="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
+          TAG="${GITHUB_REF_NAME#v}"
+          BASE="${TAG%%-*}"   # strip any -rc/-beta suffix
+          if [ "$PKG_VERSION" != "$BASE" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME ($BASE) does not match pyproject version $PKG_VERSION"
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  # Pre-release tags (contain a hyphen, e.g. v2.2.3-rc1) -> TestPyPI rehearsal.
+  publish-testpypi:
+    needs: [build]
+    if: contains(github.ref_name, '-')
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/code-navigator/
+    permissions:
+      id-token: write # required for OIDC trusted publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  # Clean version tags (no hyphen, e.g. v2.2.3) -> real PyPI release.
+  publish-pypi:
+    needs: [build]
+    if: ${{ !contains(github.ref_name, '-') }}
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/code-navigator/
+    permissions:
+      id-token: write # required for OIDC trusted publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
