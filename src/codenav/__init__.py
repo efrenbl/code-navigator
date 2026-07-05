@@ -110,7 +110,7 @@ except ImportError:
 
     HAS_AST_GREP = False
 
-__version__ = "2.2.1"
+__version__ = "2.2.3"
 __author__ = "Efren"
 __license__ = "MIT"
 

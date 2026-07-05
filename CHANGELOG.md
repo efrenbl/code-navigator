@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.3] - 2026-07-05
+
+### Changed
+
+- **PyPI distribution renamed to `code-navigator`** — first version actually
+  published to PyPI. The `codenav` name on PyPI belongs to an unrelated
+  project, so earlier "releases" existed only as GitHub Releases. The import
+  package (`import codenav`) and CLI commands (`codenav`, `cnv`,
+  `codenav-mcp`) are unchanged.
+
+### Added
+
+- Tag-triggered release workflow (`release.yml`) publishing to PyPI/TestPyPI
+  via OIDC Trusted Publishing, ported from codegraph-nav: quality gate on the
+  tagged commit, tag↔version check, hyphenated tags rehearse on TestPyPI.
+
 ## [2.2.2] - 2026-07-04
 
 ### Fixed
