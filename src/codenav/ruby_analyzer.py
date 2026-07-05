@@ -68,6 +68,7 @@ class RubyAnalyzer:
     def __init__(self, file_path: str, source: str):
         self.file_path = file_path
         self.source = source
+        self.source_bytes = source.encode("utf-8")
         self.lines = source.split("\n")
         self.symbols: list[Symbol] = []
         self._current_class: str | None = None
@@ -115,7 +116,8 @@ class RubyAnalyzer:
             self._visit_node(child)
 
     def _get_node_text(self, node: "Node") -> str:
-        return self.source[node.start_byte : node.end_byte]
+        # tree-sitter offsets are byte offsets; slice bytes, not str.
+        return self.source_bytes[node.start_byte : node.end_byte].decode("utf-8", errors="replace")
 
     def _get_child_by_type(self, node: "Node", type_name: str) -> "Node | None":
         for child in node.children:
