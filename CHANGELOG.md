@@ -7,15 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.2.3] - 2026-07-05
+## [2.2.4] - 2026-07-06
 
 ### Changed
 
-- **PyPI distribution renamed to `code-navigator`** — first version actually
-  published to PyPI. The `codenav` name on PyPI belongs to an unrelated
-  project, so earlier "releases" existed only as GitHub Releases. The import
-  package (`import codenav`) and CLI commands (`codenav`, `cnv`,
-  `codenav-mcp`) are unchanged.
+- **PyPI distribution named `codemap-nav`** — supersedes the unpublished
+  2.2.3: the `code-navigator` name was rejected by PyPI's ultra-normalized
+  similarity check (it collapses to `codenavigator`, an existing package).
+
+## [2.2.3] - 2026-07-05 (unpublished — PyPI name blocked)
+
+### Changed
+
+- **PyPI distribution renamed** (first attempt, as `code-navigator`) — the
+  `codenav` name on PyPI belongs to an unrelated project, so earlier
+  "releases" existed only as GitHub Releases. The import package
+  (`import codenav`) and CLI commands (`codenav`, `cnv`, `codenav-mcp`) are
+  unchanged.
 
 ### Added
 
@@ -159,7 +167,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **AST support for JavaScript/TypeScript** via tree-sitter (optional dependency)
-  - Install with `pip install code-navigator[ast]`
+  - Install with `pip install "codemap-nav[ast]"`
   - Detects functions, arrow functions, classes, methods, interfaces, types, enums
   - Automatic fallback to regex when tree-sitter not installed
   - New `js_ts_analyzer.py` module with `JavaScriptAnalyzer` and `TypeScriptAnalyzer`

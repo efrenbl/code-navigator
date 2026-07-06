@@ -2,17 +2,19 @@ name: Release
 
 # Publish to PyPI via PyPI Trusted Publishing (OIDC) — no API tokens stored.
 #
-# The distribution is named `code-navigator` (the `codenav` name on PyPI
-# belongs to an unrelated project); the import package and CLI commands are
-# still `codenav` / `cnv`.
+# The distribution is named `codemap-nav` (the `codenav` name on PyPI belongs
+# to an unrelated project, and `code-navigator` collides with the existing
+# `codenavigator` under PyPI name normalization). The import package and CLI
+# commands are still `codenav` / `cnv`.
 #
 # Tagging convention:
-#   v2.2.3-rc1, v2.3.0-beta, ...  (tag contains a hyphen)  -> TestPyPI (rehearsal)
-#   v2.2.3, v2.3.0, ...           (clean version tag)      -> PyPI (real release)
+#   v2.2.4-rc1, v2.3.0-beta, ...  (tag contains a hyphen)  -> TestPyPI (rehearsal)
+#   v2.2.4, v2.3.0, ...           (clean version tag)      -> PyPI (real release)
 #
 # One-time setup on the package indexes (cannot be done from CI):
-#   1. PyPI:     add a pending trusted publisher — owner: efrenbl,
-#                repo: code-navigator, workflow: release.yml, environment: pypi
+#   1. PyPI:     add a pending trusted publisher — project: codemap-nav,
+#                owner: efrenbl, repo: code-navigator, workflow: release.yml,
+#                environment: pypi
 #   2. TestPyPI: same, with environment: testpypi
 #   3. Create GitHub environments named `pypi` and `testpypi` (optionally with
 #      required reviewers for an approval gate on releases).
@@ -82,7 +84,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: testpypi
-      url: https://test.pypi.org/project/code-navigator/
+      url: https://test.pypi.org/project/codemap-nav/
     permissions:
       id-token: write # required for OIDC trusted publishing
     steps:
@@ -102,7 +104,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/code-navigator/
+      url: https://pypi.org/project/codemap-nav/
     permissions:
       id-token: write # required for OIDC trusted publishing
     steps:
