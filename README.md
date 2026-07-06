@@ -63,10 +63,10 @@ Code Navigator is a **Model Context Protocol (MCP) server** that helps AI assist
 ### 1. Install
 
 ```bash
-pip install code-navigator
+pip install codemap-nav
 ```
 
-> The PyPI distribution is **`code-navigator`**; the import package and CLI
+> The PyPI distribution is **`codemap-nav`**; the import package and CLI
 > commands are still `codenav` / `cnv`. (The `codenav` name on PyPI belongs to
 > an unrelated project — do not install it.)
 
@@ -225,7 +225,7 @@ codenav export -f markdown -o docs/codebase.md
 
 ```bash
 # Using uv
-uv pip install code-navigator
+uv pip install codemap-nav
 
 # Using pipx (isolated environment)
 pipx install codenav
@@ -276,15 +276,15 @@ If you have multiple Python installations:
 | C/C++ | Regex, or AST (ast-grep)† | ⭐⭐⭐ → ⭐⭐⭐⭐ |
 | PHP | Regex, or AST (ast-grep)† | ⭐⭐⭐ → ⭐⭐⭐⭐ |
 
-*Install tree-sitter support: `pip install "code-navigator[ast]"`
+*Install tree-sitter support: `pip install "codemap-nav[ast]"`
 All tree-sitter analyzers fall back to regex when tree-sitter is not installed.
 
 **Dart works out-of-the-box via regex. AST analysis ships pre-compiled via
-`pip install "code-navigator[dart]"` — see [Dart/Flutter setup](#dartflutter-setup) below.
+`pip install "codemap-nav[dart]"` — see [Dart/Flutter setup](#dartflutter-setup) below.
 
 †The languages without a dedicated grammar (Java, C, C++, PHP) are upgraded
 from regex to a real AST parse — with method→class parent linkage — when the
-optional ast-grep engine is installed: `pip install "code-navigator[fast]"`. Without it
+optional ast-grep engine is installed: `pip install "codemap-nav[fast]"`. Without it
 they use the regex analyzer.
 
 ### Mapping coverage
@@ -310,7 +310,7 @@ extensions, top-level functions). To enable AST-level analysis (parented
 methods, constructors, accurate signatures), install the optional grammar:
 
 ```bash
-pip install "code-navigator[dart]"
+pip install "codemap-nav[dart]"
 ```
 
 The Dart grammar ships via
