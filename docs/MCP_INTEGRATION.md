@@ -9,10 +9,10 @@ Codenav can run as an MCP (Model Context Protocol) server, exposing its code nav
 ### 1. Install Codenav with MCP Support
 
 ```bash
-# Install with MCP dependencies
-pip install codenav[mcp]
+# Install with MCP dependencies (from git — codenav is not published on PyPI)
+pip install "codenav[mcp] @ git+https://github.com/efrenbl/code-navigator.git"
 
-# Or install from source
+# Or install from a local checkout
 pip install -e ".[mcp]"
 ```
 
