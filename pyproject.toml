@@ -3,8 +3,8 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "codemap-nav"
-version = "2.2.4"
+name = "codenav"
+version = "2.2.5"
 description = "Token-efficient code navigation library and MCP server - reduce token usage by 97%"
 readme = "README.md"
 license = {text = "MIT"}
