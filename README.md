@@ -63,12 +63,12 @@ Code Navigator is a **Model Context Protocol (MCP) server** that helps AI assist
 ### 1. Install
 
 ```bash
-pip install codemap-nav
+pip install "codenav @ git+https://github.com/efrenbl/code-navigator.git"
 ```
 
-> The PyPI distribution is **`codemap-nav`**; the import package and CLI
-> commands are still `codenav` / `cnv`. (The `codenav` name on PyPI belongs to
-> an unrelated project — do not install it.)
+> Codenav is **not published on PyPI** — install it directly from the git
+> repository. The import package and CLI commands are `codenav` / `cnv`.
+> Add extras with `pip install "codenav[mcp] @ git+https://github.com/efrenbl/code-navigator.git"`.
 
 ### 2. Configure Claude Desktop
 
@@ -225,10 +225,10 @@ codenav export -f markdown -o docs/codebase.md
 
 ```bash
 # Using uv
-uv pip install codemap-nav
+uv pip install "codenav @ git+https://github.com/efrenbl/code-navigator.git"
 
 # Using pipx (isolated environment)
-pipx install codenav
+pipx install "git+https://github.com/efrenbl/code-navigator.git"
 ```
 
 ### Claude Desktop with explicit Python path
@@ -276,15 +276,15 @@ If you have multiple Python installations:
 | C/C++ | Regex, or AST (ast-grep)† | ⭐⭐⭐ → ⭐⭐⭐⭐ |
 | PHP | Regex, or AST (ast-grep)† | ⭐⭐⭐ → ⭐⭐⭐⭐ |
 
-*Install tree-sitter support: `pip install "codemap-nav[ast]"`
+*Install tree-sitter support: `pip install "codenav[ast] @ git+https://github.com/efrenbl/code-navigator.git"`
 All tree-sitter analyzers fall back to regex when tree-sitter is not installed.
 
 **Dart works out-of-the-box via regex. AST analysis ships pre-compiled via
-`pip install "codemap-nav[dart]"` — see [Dart/Flutter setup](#dartflutter-setup) below.
+`pip install "codenav[dart] @ git+https://github.com/efrenbl/code-navigator.git"` — see [Dart/Flutter setup](#dartflutter-setup) below.
 
 †The languages without a dedicated grammar (Java, C, C++, PHP) are upgraded
 from regex to a real AST parse — with method→class parent linkage — when the
-optional ast-grep engine is installed: `pip install "codemap-nav[fast]"`. Without it
+optional ast-grep engine is installed: `pip install "codenav[fast] @ git+https://github.com/efrenbl/code-navigator.git"`. Without it
 they use the regex analyzer.
 
 ### Mapping coverage
@@ -310,7 +310,7 @@ extensions, top-level functions). To enable AST-level analysis (parented
 methods, constructors, accurate signatures), install the optional grammar:
 
 ```bash
-pip install "codemap-nav[dart]"
+pip install "codenav[dart] @ git+https://github.com/efrenbl/code-navigator.git"
 ```
 
 The Dart grammar ships via

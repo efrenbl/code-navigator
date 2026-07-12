@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.5] - 2026-07-12
+
+### Changed
+- **Nombre de distribución revertido a `codenav`.** El rename a `codemap-nav`
+  (2.2.3/2.2.4) fue un error: rompía `pip install --upgrade` para clientes MCP en
+  2.2.1 (pip veía una distribución nueva aportando los mismos archivos `codenav/` en
+  vez de actualizar la instalación existente). El proyecto se consume solo desde el
+  repositorio git; se abandona la publicación en PyPI por ahora. El paquete importable
+  (`import codenav`), los comandos CLI (`codenav`, `cnv`, `codenav-mcp`) y las mejoras
+  2.2.1–2.2.4 se conservan tal cual.
+
+### Removed
+- Workflow de PyPI Trusted Publishing (`.github/workflows/release.yml`).
+
 ## [2.2.4] - 2026-07-06
 
 ### Changed
@@ -167,7 +181,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **AST support for JavaScript/TypeScript** via tree-sitter (optional dependency)
-  - Install with `pip install "codemap-nav[ast]"`
+  - Install with `pip install "codenav[ast]"`
   - Detects functions, arrow functions, classes, methods, interfaces, types, enums
   - Automatic fallback to regex when tree-sitter not installed
   - New `js_ts_analyzer.py` module with `JavaScriptAnalyzer` and `TypeScriptAnalyzer`
