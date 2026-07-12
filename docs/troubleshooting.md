@@ -39,8 +39,8 @@ This guide helps you resolve common issues with Code Navigator.
 
 4. Reinstall:
    ```bash
-   pip uninstall code-navigator
-   pip install code-navigator
+   pip uninstall codenav
+   pip install "codenav @ git+https://github.com/efrenbl/code-navigator.git"
    ```
 
 ### Import errors after installation
@@ -58,7 +58,7 @@ This guide helps you resolve common issues with Code Navigator.
    ```bash
    python -m venv venv
    source venv/bin/activate
-   pip install code-navigator
+   pip install "codenav @ git+https://github.com/efrenbl/code-navigator.git"
    ```
 
 ---

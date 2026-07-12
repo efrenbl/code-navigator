@@ -118,11 +118,11 @@ code-search --type function --file "src/api/"
 Added tree-sitter based AST parsing for JavaScript and TypeScript files as an optional dependency:
 
 ```bash
-# Install with AST support
-pip install codenav[ast]
+# Install with AST support (from git — codenav is not published on PyPI)
+pip install "codenav[ast] @ git+https://github.com/efrenbl/code-navigator.git"
 
 # Without AST (regex fallback, zero dependencies)
-pip install codenav
+pip install "codenav @ git+https://github.com/efrenbl/code-navigator.git"
 ```
 
 Features:

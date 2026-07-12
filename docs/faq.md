@@ -34,9 +34,12 @@ No! Code Navigator uses only the Python standard library. Zero external dependen
 Yes. Example Dockerfile:
 ```dockerfile
 FROM python:3.11-slim
-RUN pip install code-navigator
+# codenav is installed from git (not published on PyPI), so git is required
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install "codenav @ git+https://github.com/efrenbl/code-navigator.git"
 WORKDIR /code
-ENTRYPOINT ["codenav map"]
+ENTRYPOINT ["codenav", "map"]
 ```
 
 ### Does it work on Windows?
@@ -93,8 +96,8 @@ codenav map tests/ -o .codenav-tests.json
 
 **Full AST analysis (best accuracy):**
 - Python (stdlib `ast`, always on)
-- JavaScript / TypeScript / Ruby / Go / Rust — via tree-sitter (`pip install codenav[ast]`)
-- Dart / Flutter — via tree-sitter (`pip install codenav[dart]`, grammar from tree-sitter-dart)
+- JavaScript / TypeScript / Ruby / Go / Rust — via tree-sitter (`pip install "codenav[ast] @ git+https://github.com/efrenbl/code-navigator.git"`)
+- Dart / Flutter — via tree-sitter (`pip install "codenav[dart] @ git+https://github.com/efrenbl/code-navigator.git"`, grammar from tree-sitter-dart)
 
 **Regex-based fallback (good accuracy, zero extra deps):**
 - JavaScript, TypeScript, Java, Go, Rust, Ruby, C/C++, PHP, Dart

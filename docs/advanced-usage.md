@@ -238,8 +238,8 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install code-navigator
-        run: pip install code-navigator
+      - name: Install codenav
+        run: pip install "codenav @ git+https://github.com/efrenbl/code-navigator.git"
 
       - name: Generate code map
         run: codenav map . -o .codenav.json
