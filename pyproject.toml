@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "codenav"
-version = "2.2.5"
+dynamic = ["version"]
 description = "Token-efficient code navigation library and MCP server - reduce token usage by 97%"
 readme = "README.md"
 license = {text = "MIT"}
@@ -126,6 +126,9 @@ codenav-mcp = "codenav.mcp:main"
 # code-nav = "codenav.code_navigator:main"
 # code-search = "codenav.code_search:main"
 # code-read = "codenav.line_reader:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "codenav._version.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]

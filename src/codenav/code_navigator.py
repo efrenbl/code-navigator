@@ -34,9 +34,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from ._version import __version__
 from .colors import get_colors
-
-__version__ = "1.2.0"
 
 # Supported languages and their extensions
 LANGUAGE_EXTENSIONS = {

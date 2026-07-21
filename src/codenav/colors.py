@@ -15,8 +15,6 @@ import os
 import sys
 import threading
 
-__version__ = "1.2.0"
-
 
 class Colors:
     """ANSI color utility class with automatic terminal detection.

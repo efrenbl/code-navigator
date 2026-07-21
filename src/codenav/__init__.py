@@ -46,6 +46,7 @@ Example:
 
 import hashlib
 
+from ._version import __version__
 from .code_navigator import CodeNavigator, GenericAnalyzer, GitIntegration, PythonAnalyzer, Symbol
 from .code_search import CodeSearcher, SearchResult
 from .completions import generate_bash_completion, generate_zsh_completion
@@ -110,7 +111,6 @@ except ImportError:
 
     HAS_AST_GREP = False
 
-__version__ = "2.2.5"
 __author__ = "Efren"
 __license__ = "MIT"
 
