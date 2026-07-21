@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.6] - 2026-07-21
+
 ### Security
 - **Bump `mcp>=1.28.1`** en los extras `[mcp]`/`[dev]`/`[all]` para descartar
   CVE-2026-59950 (el transporte WebSocket del MCP Python SDK no validaba
@@ -21,6 +23,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   el CI falla si una dependencia tiene un advisory conocido. Auditar el lock (en vez
   del entorno instalado) lo hace determinista y evita falsos positivos del tooling
   base del runner.
+
+### Changed
+- **Versión en una sola fuente de verdad** (`src/codenav/_version.py`). Se eliminaron
+  los `__version__` hardcodeados y desincronizados de los módulos; `__init__`, los CLIs
+  y la metadata del paquete (`pyproject` dinámico) derivan todos de ahí. Subir versión
+  ahora solo toca `_version.py`.
+
+### Added
+- **Publicación automática de GitHub Release** al pushear un tag `v*`
+  (`.github/workflows/release.yml`, solo GitHub Release, sin PyPI) para mantener la
+  página de Releases y el badge de versión en sync con los tags.
 
 ## [2.2.5] - 2026-07-12
 
