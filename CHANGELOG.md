@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Bump `mcp>=1.28.1`** en los extras `[mcp]`/`[dev]`/`[all]` para descartar
+  CVE-2026-59950 (el transporte WebSocket del MCP Python SDK no validaba
+  Host/Origin). Codenav corre FastMCP sobre stdio, así que la exposición real era
+  baja, pero se sube el floor para que ningún consumidor resuelva una versión
+  vulnerable.
+- **Bump de dependencias transitivas del lock** vía `uv lock --upgrade`
+  (`starlette` 0.52.1→1.3.1, `urllib3` 2.6.3→2.7.0, `cryptography` 46.0.3→49.0.0,
+  entre otras) para descartar advisories conocidos en el árbol bloqueado.
+- **Escaneo de vulnerabilidades en CI**: nuevo job `security-audit` que exporta el
+  árbol bloqueado (`uv export --frozen --all-extras`) y corre `pip-audit` sobre él;
+  el CI falla si una dependencia tiene un advisory conocido. Auditar el lock (en vez
+  del entorno instalado) lo hace determinista y evita falsos positivos del tooling
+  base del runner.
+
 ## [2.2.5] - 2026-07-12
 
 ### Changed
