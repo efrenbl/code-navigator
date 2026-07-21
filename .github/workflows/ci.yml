@@ -71,7 +71,10 @@ jobs:
     - name: Lint with ruff
       run: ruff check src/ tests/
 
-  # Scan the full dependency surface (all extras) for known vulnerabilities.
+  # Scan the locked dependency tree (all extras) for known vulnerabilities.
+  # Auditing the exported uv.lock — instead of the installed environment — keeps
+  # the check deterministic and scoped to codenav's own dependencies, so ambient
+  # runner build tooling (pip/setuptools/wheel) can't cause false positives.
   security-audit:
     runs-on: ubuntu-latest
     steps:
@@ -82,15 +85,15 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install codenav with all extras + pip-audit
-      run: |
-        python -m pip install --upgrade pip   # avoid false positives from the runner's own pip
-        pip install -e ".[all]" pip-audit
+    - name: Install uv + pip-audit
+      run: python -m pip install --upgrade uv pip-audit
 
-    - name: Audit dependencies
-      # --skip-editable ignores the locally-installed codenav (not on PyPI, so it
-      # can't be audited); the job still fails on any vulnerable third-party dep.
-      run: pip-audit --skip-editable
+    - name: Export locked dependencies (all extras, excluding the project)
+      # --frozen fails if uv.lock is out of sync with pyproject.toml.
+      run: uv export --frozen --all-extras --no-emit-project --format requirements-txt -o requirements-audit.txt
+
+    - name: Audit locked dependencies
+      run: pip-audit -r requirements-audit.txt
 
   # Verify core library works without MCP installed (critical for kmlp-mcp integration)
   test-core-no-mcp:
