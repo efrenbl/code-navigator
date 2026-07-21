@@ -22,9 +22,8 @@ import json
 import re
 from pathlib import Path
 
+from ._version import __version__
 from .colors import get_colors
-
-__version__ = "1.2.0"
 
 
 class LineReader:

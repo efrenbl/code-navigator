@@ -25,8 +25,6 @@ from pathlib import Path
 from .code_navigator import DEFAULT_IGNORE_PATTERNS, LANGUAGE_EXTENSIONS, CodeNavigator
 from .colors import get_colors
 
-__version__ = "1.4.1"
-
 
 class CodenavWatcher:
     """Watches a codebase for changes and updates the code map automatically.

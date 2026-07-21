@@ -27,9 +27,8 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import Path
 
+from ._version import __version__
 from .colors import get_colors
-
-__version__ = "1.2.0"
 
 # Pattern to detect catastrophic regex constructs (nested quantifiers)
 _CATASTROPHIC_RE = re.compile(r"\([^)]*[+*]\)[+*]")
