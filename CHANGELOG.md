@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Guard ReDoS centralizado** (`src/codenav/regex_safety.py`). Todos los
+  `re.compile` de patrones de usuario pasan ahora por un único `safe_compile`;
+  se cerró el path sin protección en `line_reader.search_in_file` (grep vía CLI
+  `codenav read --search`) y se reforzó el heurístico de nested quantifiers.
+- **Triage Snyk SCA**: los hallazgos estaban stale (bleach/pygments/idna/urllib3/
+  cryptography/zipp ya parchados en `uv.lock`). Se consolidó el `dev-requirements.txt`
+  legacy (deriva de `.[dev]`).
+
+### Removed
+- **Se eliminó `twine`** de las dependencias de desarrollo y de los flujos de CI/
+  Makefile. Codenav es git-only (no publica a PyPI), así que `twine check`/`twine
+  upload` no aportaban nada; quitarlo poda 22 paquetes transitivos (twine, urllib3,
+  nh3, readme-renderer, keyring, requests, secretstorage, rich…) del árbol de
+  dependencias. El job `build` de CI sigue validando el empaquetado con `python -m build`.
+
 ## [2.2.6] - 2026-07-21
 
 ### Security

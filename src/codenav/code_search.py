@@ -29,26 +29,7 @@ from pathlib import Path
 
 from ._version import __version__
 from .colors import get_colors
-
-# Pattern to detect catastrophic regex constructs (nested quantifiers)
-_CATASTROPHIC_RE = re.compile(r"\([^)]*[+*]\)[+*]")
-
-
-def _safe_regex_compile(pattern: str) -> re.Pattern:
-    """Compile a regex pattern with validation against ReDoS.
-
-    Raises:
-        ValueError: If the pattern is invalid or contains catastrophic constructs.
-    """
-    if _CATASTROPHIC_RE.search(pattern):
-        raise ValueError(
-            f"Regex pattern rejected: contains nested quantifiers "
-            f"that could cause ReDoS: {pattern!r}"
-        )
-    try:
-        return re.compile(pattern, re.IGNORECASE)
-    except re.error as e:
-        raise ValueError(f"Invalid regex pattern: {e}") from None
+from .regex_safety import safe_compile as _safe_regex_compile
 
 
 @dataclass
