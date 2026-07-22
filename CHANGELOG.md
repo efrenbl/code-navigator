@@ -7,14 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.7] - 2026-07-22
+
 ### Security
 - **Guard ReDoS centralizado** (`src/codenav/regex_safety.py`). Todos los
   `re.compile` de patrones de usuario pasan ahora por un único `safe_compile`;
   se cerró el path sin protección en `line_reader.search_in_file` (grep vía CLI
-  `codenav read --search`) y se reforzó el heurístico de nested quantifiers.
+  `codenav read --search`) y se reforzó el heurístico de nested quantifiers
+  (ahora también detecta las formas `(a+b)+` y `{n,}`). Cobertura nueva en
+  `tests/test_regex_safety.py` (+18 casos).
 - **Triage Snyk SCA**: los hallazgos estaban stale (bleach/pygments/idna/urllib3/
   cryptography/zipp ya parchados en `uv.lock`). Se consolidó el `dev-requirements.txt`
-  legacy (deriva de `.[dev]`).
+  legacy para que derive del extra de instalación `.[dev]` (una sola fuente de
+  verdad para las dependencias de desarrollo).
 
 ### Removed
 - **Se eliminó `twine`** de las dependencias de desarrollo y de los flujos de CI/
@@ -395,7 +400,8 @@ None at this time.
 
 ---
 
-[Unreleased]: https://github.com/efrenbl/code-navigator/compare/v2.2.1...HEAD
+[Unreleased]: https://github.com/efrenbl/code-navigator/compare/v2.2.7...HEAD
+[2.2.7]: https://github.com/efrenbl/code-navigator/compare/v2.2.6...v2.2.7
 [2.2.1]: https://github.com/efrenbl/code-navigator/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/efrenbl/code-navigator/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/efrenbl/code-navigator/compare/v1.4.1...v2.1.0
