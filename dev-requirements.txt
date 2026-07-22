@@ -1,21 +1,11 @@
-# Development dependencies for Code Navigator
-# Install with: pip install -r dev-requirements.txt
-# Or: pip install -e ".[dev]"
+# Development dependencies for Code Navigator.
+#
+# Single source of truth: the [dev] extra in pyproject.toml (pinned in uv.lock).
+# This file just defers to it so the dev toolchain can never drift out of sync
+# with pyproject / the lockfile (it previously duplicated the list and had gone
+# stale — e.g. isort/flake8, which the project replaced with ruff).
+#
+#   pip install -r dev-requirements.txt      # equivalent to the line below
+#   pip install -e ".[dev]"
 
-# Testing
-pytest>=7.0.0
-pytest-cov>=4.0.0
-
-# Code formatting
-black>=23.0.0
-isort>=5.12.0
-
-# Linting
-flake8>=6.0.0
-
-# Type checking
-mypy>=1.0.0
-
-# Building and publishing
-build>=1.0.0
-twine>=4.0.0
+-e .[dev]

@@ -19,11 +19,11 @@ Example:
 
 import argparse
 import json
-import re
 from pathlib import Path
 
 from ._version import __version__
 from .colors import get_colors
+from .regex_safety import safe_compile
 
 
 class LineReader:
@@ -392,13 +392,14 @@ class LineReader:
         except Exception as e:
             return {"error": f"Failed to read file: {e}"}
 
-        # Find matches
+        # Find matches. Route through the shared ReDoS guard instead of a raw
+        # re.compile so this grep path gets the same protection as code_search.
         matches = []
         try:
-            regex = re.compile(pattern, re.IGNORECASE)
-        except re.error as e:
+            regex = safe_compile(pattern)
+        except ValueError as e:
             return {
-                "error": f"Invalid regex pattern: {e}",
+                "error": str(e),
                 "file": file_path,
                 "pattern": pattern,
                 "matches": 0,

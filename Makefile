@@ -1,7 +1,7 @@
 # Code Navigator - Makefile
 # Provides common development commands
 
-.PHONY: help install dev-setup test coverage lint format clean build publish
+.PHONY: help install dev-setup test coverage lint format clean build
 
 # Default target
 help:
@@ -82,12 +82,9 @@ clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
 
-# Publishing
-publish: build
-	python -m twine upload dist/*
-
-publish-test: build
-	python -m twine upload --repository testpypi dist/*
+# Note: codenav is consumed git-only (not published to PyPI), so there are no
+# publish targets. Release = bump src/codenav/_version.py, tag vX.Y.Z, push tag;
+# the release.yml workflow then creates the GitHub Release.
 
 # Quick demo
 demo:
