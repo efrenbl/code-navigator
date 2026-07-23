@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.8] - 2026-07-23
+
+### Security
+- **Refresh de SHAs pineados en GitHub Actions** (`ci.yml`, `release.yml`).
+  Los tags `actions/checkout@v5` y `actions/setup-python@v6` habían sido
+  actualizados upstream desde el último pinning; se actualizan a sus commits
+  actuales para evitar correr el código antiguo de las actions. `codecov@v5`
+  y `upload-artifact@v4` se verificaron como correctos.
+
 ## [2.2.7] - 2026-07-22
 
 ### Security
