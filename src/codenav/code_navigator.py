@@ -422,6 +422,8 @@ class PythonAnalyzer(ast.NodeVisitor):
             self.visit(tree)
         except SyntaxError as e:
             print(f"Syntax error in {self.file_path}: {e}", file=sys.stderr)
+        for symbol in self.symbols:
+            symbol.source = "ast"
         return self.symbols
 
 
@@ -644,6 +646,7 @@ class GenericAnalyzer:
                         line_end=line_end,
                         signature=match.group(0).strip()[:100],
                         truncated=was_truncated,
+                        source="regex",
                     )
                 )
 
@@ -665,6 +668,7 @@ def _astgrep_to_symbol(ag_symbol: Any) -> Symbol:
         line_end=ag_symbol.line_end,
         signature=ag_symbol.signature,
         parent=ag_symbol.parent,
+        source="ast-grep",
     )
 
 
@@ -887,6 +891,9 @@ class CodeNavigator:
         self.max_symbol_lines = max_symbol_lines
         self.symbols: list[Symbol] = []
         self.file_hashes: dict[str, str] = {}
+        # Raw import specifiers per file (rel_path -> [spec, ...]); resolved to
+        # internal file paths in generate_map for the per-file "imports" key.
+        self.file_imports: dict[str, list[str]] = {}
         self.stats = {
             "files_processed": 0,
             "symbols_found": 0,
@@ -1029,7 +1036,11 @@ class CodeNavigator:
             else:
                 return []
 
-            return analyzer.analyze()
+            symbols = analyzer.analyze()
+            # Capture raw import specifiers so generate_map can resolve them to
+            # internal file paths for the per-file "imports" key.
+            self.file_imports[rel_path] = list(getattr(analyzer, "imports", []) or [])
+            return symbols
 
         except Exception as e:
             self.stats["errors"] += 1
@@ -1263,6 +1274,9 @@ class CodeNavigator:
         for rel_path in unchanged_files:
             file_info = existing_files[rel_path]
             self.file_hashes[rel_path] = file_info.get("hash", "")
+            # Carry over already-resolved imports; generate_map re-resolves them
+            # (resolved file paths round-trip through the resolver's exact match).
+            self.file_imports[rel_path] = list(file_info.get("imports", []) or [])
 
             # Convert stored symbols back to Symbol objects
             for sym_data in file_info.get("symbols", []):
@@ -1278,6 +1292,11 @@ class CodeNavigator:
                     dependencies=sym_data.get("deps") or [],
                     decorators=sym_data.get("decorators") or [],
                     truncated=sym_data.get("truncated", False),
+                    source=sym_data.get("source"),
+                    visibility=sym_data.get("visibility"),
+                    modifiers=sym_data.get("modifiers"),
+                    mixins=sym_data.get("mixins"),
+                    return_type=sym_data.get("return_type"),
                 )
                 self.symbols.append(symbol)
 
@@ -1318,6 +1337,67 @@ class CodeNavigator:
 
         return self.generate_map()
 
+    def _attach_resolved_imports(self, files_map: dict[str, dict[str, Any]]) -> None:
+        """Resolve each file's raw import specifiers to internal file paths.
+
+        Adds an ``"imports"`` key (list of repo-relative file paths) to every
+        entry in ``files_map``. Specifiers that resolve outside the repo, or not
+        at all (external libraries), are omitted. Best-effort: any resolver
+        failure leaves imports empty rather than aborting the scan.
+        """
+        for file_path in files_map:
+            files_map[file_path].setdefault("imports", [])
+
+        if not any(self.file_imports.values()):
+            return
+
+        try:
+            from .import_resolver import ImportResolver
+
+            resolver = ImportResolver(str(self.root_path))
+            resolver.load_aliases_from_tsconfig()
+            resolver.load_aliases_from_pyproject()
+            resolver.build_index()
+        except Exception:
+            return
+
+        known_files = set(files_map)
+        for file_path, raw_imports in self.file_imports.items():
+            if file_path not in files_map:
+                continue
+            resolved: list[str] = []
+            seen: set[str] = set()
+            for spec in raw_imports:
+                target = self._resolve_one(resolver, file_path, spec)
+                # Keep only internal files that we actually mapped, and never a
+                # self-import.
+                if target and target in known_files and target != file_path and target not in seen:
+                    seen.add(target)
+                    resolved.append(target)
+            files_map[file_path]["imports"] = resolved
+
+    @staticmethod
+    def _resolve_one(resolver: Any, file_path: str, spec: str) -> str | None:
+        """Resolve a single import spec, retrying shorter dotted prefixes.
+
+        Python ``from pkg.mod import name`` is recorded as ``pkg.mod.name``,
+        which does not name a file. Retry ``pkg.mod`` then ``pkg`` so the import
+        still resolves to the module file.
+        """
+        candidate = spec
+        while candidate:
+            try:
+                result = resolver.resolve(file_path, candidate)
+            except Exception:
+                return None
+            path = result.path
+            if result.found and isinstance(path, str):
+                return path
+            if "." not in candidate:
+                return None
+            candidate = candidate.rsplit(".", 1)[0]
+        return None
+
     def generate_map(self) -> dict[str, Any]:
         """Generate the code map structure from collected symbols.
 
@@ -1352,7 +1432,26 @@ class CodeNavigator:
             # Only include truncated flag when True (keeps output compact)
             if symbol.truncated:
                 symbol_dict["truncated"] = True
+            # Engine provenance; omitted when unknown (pre-v2.3.0 round-trips)
+            if symbol.source:
+                symbol_dict["source"] = symbol.source
+            # v2.3.0 enrichment keys — emitted only when set (public visibility
+            # is normalized to None upstream, keeping the map compact)
+            if symbol.visibility:
+                symbol_dict["visibility"] = symbol.visibility
+            if symbol.modifiers:
+                symbol_dict["modifiers"] = symbol.modifiers
+            if symbol.mixins:
+                symbol_dict["mixins"] = symbol.mixins
+            if symbol.return_type:
+                symbol_dict["return_type"] = symbol.return_type
             files_map[symbol.file_path]["symbols"].append(symbol_dict)
+
+        # Resolve raw import specifiers to internal repo file paths so map
+        # consumers can follow file-to-file import relationships. Unresolved /
+        # external imports (third-party libraries) are dropped — only repo
+        # files are linked.
+        self._attach_resolved_imports(files_map)
 
         symbol_index = {}
         for symbol in self.symbols:
