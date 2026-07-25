@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.9] - 2026-07-25
+
+### Fixed
+- **Gitignore matching is now real gitignore semantics, not a substring test.**
+  `should_ignore` matched each pattern as a raw substring against the full path,
+  so a `.gitignore` containing `main` silently dropped every path that merely
+  *contained* the word — `internal/domain/entity/` (via "do**main**") and
+  `cmd/api/main.go` — while `git check-ignore` reported none of them ignored.
+  Whole subtrees vanished from the index with `errors: 0` and coverage looking
+  healthy. New self-contained `gitignore.py` (zero dependencies) implements
+  path-component matching, `/` anchoring, `dir/`, `**`, negation (including the
+  "cannot re-include under an excluded parent" rule), nested `.gitignore`
+  precedence, `.git/info/exclude` and `core.excludesFile`, validated in tests
+  against `git check-ignore` as the oracle.
+
+### Added
+- **Coverage invariant.** After a scan, each detected language's source files
+  are compared against files that produced symbols. A language with real code
+  but zero symbols anywhere means its analyzer silently broke — now a hard error
+  (`exit 2`), not a statistic. The map always carries a `per_language`
+  breakdown.
+- **Distinguishable skip causes.** `files_skipped` is split into
+  `skipped_gitignore` / `skipped_symlink` / `skipped_not_tracked`, shown in the
+  coverage summary, so `errors: 0` can no longer coexist with a fifth of the
+  code quietly missing.
+- **Runtime self-disclosure (MCP).** `codenav_search` (no matches) and
+  `codenav_get_structure` (file not found) now report whether the index is
+  partial, and `codenav_get_structure` distinguishes "exists on disk but not
+  indexed" from "does not exist" — so the agent can tell "not in the code" from
+  "not in the index".
+
+### Changed
+- **Index format version bumped `1.0` → `2`.** `scan_incremental` discards a
+  map with a mismatched version and performs a full rebuild, so the gitignore
+  fix's changed membership cannot be masked by a carried-over pre-2.2.9 index.
+  Existing `.codenav.json` files are invalidated automatically on the next
+  `codenav map --incremental`.
+- **`--use-gitignore` now honors `.gitignore` even outside a git repository**
+  (it is a plain file and the matcher is self-contained). `.git/info/exclude`
+  and `core.excludesFile` still require git.
+
 ## [2.2.8] - 2026-07-23
 
 ### Security
