@@ -164,6 +164,47 @@ class CodenavToolHandler:
 
         return {}
 
+    def _index_health_note(self, path: str) -> str:
+        """A one-line caveat when the index is partial, for empty/not-found replies.
+
+        The failure that drove the token blow-up was the agent reading "no
+        match" as "the symbol does not exist" when the truth was "its file was
+        skipped." When the index dropped or couldn't parse anything, say so, so
+        the agent can tell "not in the code" from "not in the index."
+        """
+        stats = self._get_code_map(path).get("stats", {})
+        bits = []
+        skipped = stats.get("files_skipped", 0)
+        if skipped:
+            causes = [
+                f"{k[len('skipped_'):]}:{v}"
+                for k, v in sorted(stats.items())
+                if k.startswith("skipped_") and v
+            ]
+            bits.append(
+                f"{skipped} files skipped ({' '.join(causes)})"
+                if causes
+                else f"{skipped} files skipped"
+            )
+        gaps = stats.get("coverage_gaps")
+        if gaps:
+            bits.append(f"languages with ZERO extracted symbols: {', '.join(gaps)}")
+        unmapped = stats.get("files_unmapped", 0)
+        if unmapped:
+            bits.append(f"{unmapped} files have no analyzer")
+        if not bits:
+            return ""
+        return "\nNOTE — the index is partial, so 'not found' may mean 'not indexed': " + "; ".join(
+            bits
+        )
+
+    def _is_file_on_disk_not_indexed(self, path: str, rel_file: str) -> bool:
+        """True when a file exists on disk but is absent from the code map."""
+        code_map = self._get_code_map(path)
+        if rel_file in code_map.get("files", {}):
+            return False
+        return (Path(path) / rel_file).is_file()
+
     def _format_search_results_compact(self, results: list, limit: int) -> str:
         """Format search results in compact single-line format."""
         if not results:
@@ -337,7 +378,10 @@ def codenav_search(
 
             results = [r for r in results if fnmatch.fnmatch(r.file, file_pattern)]
 
-        return handler._format_search_results_compact(results, limit)
+        formatted = handler._format_search_results_compact(results, limit)
+        if not results:
+            formatted += handler._index_health_note(search_path)
+        return formatted
 
     except Exception as e:
         logger.exception(f"Error searching for {query}")
@@ -594,7 +638,16 @@ def codenav_get_structure(
                 break
 
         if not file_info:
-            return f"File not found in code map: {file_path}"
+            if handler._is_file_on_disk_not_indexed(search_path, rel_path):
+                return (
+                    f"File exists on disk but is NOT in the index: {file_path}. "
+                    "It was skipped (gitignore/pattern), has an unsupported "
+                    "extension, or the index is stale — re-run codenav_scan."
+                    + handler._index_health_note(search_path)
+                )
+            return f"File not found in code map: {file_path}" + handler._index_health_note(
+                search_path
+            )
 
         symbols = file_info.get("symbols", [])
         if not include_private:
