@@ -145,6 +145,18 @@ class Symbol:
         parent: For methods, the containing class name.
         dependencies: List of symbols this symbol calls/uses.
         decorators: List of decorator names applied to this symbol.
+        source: Engine that produced the symbol — "ast" (Python AST or
+            tree-sitter), "ast-grep", or "regex". None in maps generated
+            before v2.3.0.
+        visibility: "private" or "protected" when the language exposes it
+            (Go lowercase names, Ruby modifiers, Dart underscore prefix).
+            None means public or unknown (pre-v2.3.0 maps).
+        modifiers: Extra qualifiers such as "static", "async", "abstract",
+            "factory", "getter", "setter". None when there are none.
+        mixins: Modules mixed into a class/module symbol (Ruby
+            include/extend/prepend). None for non-container symbols.
+        return_type: Normalized return type name ("*Foo" → "Foo",
+            "(Foo, error)" → "Foo", "pkg.Foo" → "Foo"). None when unknown.
 
     Example:
         >>> symbol = Symbol(
@@ -165,9 +177,14 @@ class Symbol:
     signature: str | None = None
     docstring: str | None = None
     parent: str | None = None
-    dependencies: list[str] = None
-    decorators: list[str] = None
+    dependencies: list[str] | None = None
+    decorators: list[str] | None = None
     truncated: bool = False  # True if symbol exceeded max line limit during analysis
+    source: str | None = None  # "ast" | "ast-grep" | "regex" (None: pre-v2.3.0 map)
+    visibility: str | None = None  # "private" | "protected" (None: public/unknown)
+    modifiers: list[str] | None = None  # e.g. ["static", "async"], ["factory"]
+    mixins: list[str] | None = None  # Ruby include/extend/prepend module names
+    return_type: str | None = None  # normalized return type name
 
     def __post_init__(self):
         """Initialize mutable default values."""
@@ -470,6 +487,48 @@ class GenericAnalyzer:
             "enum": r"enum\s+(\w+)\s*\{",
             "extension": r"extension\s+(\w+)\s+on\s+\w+",
             "function": r"^[ \t]*(?!(?:if|for|while|switch|catch|return|do|else|throw|new|await|assert|yield)\b)(?:Future(?:<[^>]+>)?|void|String|int|double|bool|num|dynamic|Widget|List(?:<[^>]+>)?|Map(?:<[^>]+>)?|Set(?:<[^>]+>)?|Iterable(?:<[^>]+>)?|Stream(?:<[^>]+>)?|[A-Z]\w*\??)\s+(\w+)\s*\([^)]*\)\s*(?:async\s*\*?\s*)?\{",
+        },
+        "kotlin": {
+            "function": r"(?:suspend\s+)?fun\s+(?:<[^>]*>\s+)?(?:[\w.<>?]+\.)?(\w+)\s*\(",
+            "class": r"(?:abstract\s+|open\s+|data\s+|sealed\s+|inner\s+|annotation\s+)*class\s+(\w+)",
+            "interface": r"(?:fun\s+)?interface\s+(\w+)",
+            "object": r"(?:^|\s)object\s+(\w+)",
+            "type": r"typealias\s+(\w+)",
+        },
+        "swift": {
+            "function": r"func\s+(\w+)\s*(?:<[^>]*>)?\s*\(",
+            "class": r"(?:final\s+|open\s+)?class\s+(\w+)",
+            "struct": r"struct\s+(\w+)",
+            "protocol": r"protocol\s+(\w+)",
+            "enum": r"(?:indirect\s+)?enum\s+(\w+)",
+            "extension": r"extension\s+([\w.]+)",
+        },
+        "csharp": {
+            "class": r"(?:public\s+|private\s+|protected\s+|internal\s+|static\s+|sealed\s+|abstract\s+|partial\s+)*class\s+(\w+)",
+            "interface": r"interface\s+(\w+)",
+            "struct": r"(?:readonly\s+)?(?:record\s+)?struct\s+(\w+)",
+            "enum": r"enum\s+(\w+)",
+            "method": r"(?:public|private|protected|internal|static|virtual|override|async|sealed)\s+[\w<>\[\],?\s]+?\b(\w+)\s*\([^)]*\)\s*(?:\{|=>)",
+        },
+        "c": {
+            "function": r"^[A-Za-z_][\w\s\*]*?\b(\w+)\s*\([^;)]*\)\s*\{",
+            "struct": r"(?:typedef\s+)?struct\s+(\w+)\s*\{",
+            "enum": r"(?:typedef\s+)?enum\s+(\w+)\s*\{",
+            "union": r"(?:typedef\s+)?union\s+(\w+)\s*\{",
+        },
+        "cpp": {
+            "function": r"^[A-Za-z_][\w:\s\*&<>,~]*?\b([\w~]+)\s*\([^;)]*\)\s*(?:const\s*)?(?:noexcept\s*)?\{",
+            "class": r"class\s+(\w+)",
+            "struct": r"struct\s+(\w+)\s*[\{:]",
+            "namespace": r"namespace\s+(\w+)",
+            "enum": r"enum\s+(?:class\s+)?(\w+)",
+        },
+        "php": {
+            "function": r"function\s+(\w+)\s*\(",
+            "class": r"(?:abstract\s+|final\s+)?class\s+(\w+)",
+            "interface": r"interface\s+(\w+)",
+            "trait": r"trait\s+(\w+)",
+            "enum": r"enum\s+(\w+)",
         },
     }
 
