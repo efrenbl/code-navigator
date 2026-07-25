@@ -229,6 +229,10 @@ class Symbol:
             self.decorators = []
 
 
+# Base classes that mark a ``class`` as an enumeration.
+_ENUM_BASES = frozenset({"Enum", "IntEnum", "StrEnum", "Flag", "IntFlag"})
+
+
 class PythonAnalyzer(ast.NodeVisitor):
     """Analyzes Python files using AST for accurate symbol extraction.
 
@@ -267,6 +271,7 @@ class PythonAnalyzer(ast.NodeVisitor):
         self.lines = source.split("\n")
         self.symbols: list[Symbol] = []
         self.current_class: str | None = None
+        self.current_function: str | None = None
         self.imports: list[str] = []
 
     def get_line_end(self, node) -> int:
@@ -387,9 +392,18 @@ class PythonAnalyzer(ast.NodeVisitor):
         if bases:
             signature += f"({', '.join(bases)})"
 
+        # Classes deriving from an Enum flavour are modelled as enums so map
+        # consumers can render them with the right kind.
+        symbol_type = "class"
+        for base in bases:
+            last = base.split(".")[-1].split("[")[0].strip()
+            if last in _ENUM_BASES:
+                symbol_type = "enum"
+                break
+
         symbol = Symbol(
             name=node.name,
-            type="class",
+            type=symbol_type,
             file_path=self.file_path,
             line_start=node.lineno,
             line_end=self.get_line_end(node),
@@ -399,10 +413,15 @@ class PythonAnalyzer(ast.NodeVisitor):
         )
         self.symbols.append(symbol)
 
+        # A class body resets the enclosing-function scope: its direct methods
+        # take the class as parent, not some outer function.
         old_class = self.current_class
+        old_function = self.current_function
         self.current_class = node.name
+        self.current_function = None
         self.generic_visit(node)
         self.current_class = old_class
+        self.current_function = old_function
 
     def visit_FunctionDef(self, node):
         """Visit a function definition."""
@@ -420,13 +439,25 @@ class PythonAnalyzer(ast.NodeVisitor):
         """
         symbol_type = "method" if self.current_class else "function"
 
+        # Walk the function body without descending into nested function/class
+        # definitions — their calls belong to the nested symbol, not this one.
         calls = []
-        for child in ast.walk(node):
+        stack = list(ast.iter_child_nodes(node))
+        while stack:
+            child = stack.pop()
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue
             if isinstance(child, ast.Call):
                 if isinstance(child.func, ast.Name):
                     calls.append(child.func.id)
                 elif isinstance(child.func, ast.Attribute):
                     calls.append(child.func.attr)
+            stack.extend(ast.iter_child_nodes(child))
+
+        # A method (direct child of a class) is parented on the class; a nested
+        # function is parented on its containing function. This keeps
+        # qualified names unique when two functions define same-named helpers.
+        parent = self.current_class or self.current_function
 
         symbol = Symbol(
             name=node.name,
@@ -436,11 +467,56 @@ class PythonAnalyzer(ast.NodeVisitor):
             line_end=self.get_line_end(node),
             signature=self.get_signature(node),
             docstring=self.get_docstring(node),
-            parent=self.current_class,
-            dependencies=list(set(calls)),
+            parent=parent,
+            # Sorted so the index is deterministic across runs (matches the
+            # tree-sitter analyzers, which sort callees too).
+            dependencies=sorted(set(calls)),
             decorators=self.get_decorators(node),
         )
         self.symbols.append(symbol)
+
+        # Inside this function body, nested defs are children of it (not of an
+        # outer class); clear current_class so they don't look like methods.
+        old_class = self.current_class
+        old_function = self.current_function
+        self.current_class = None
+        self.current_function = node.name
+        self.generic_visit(node)
+        self.current_class = old_class
+        self.current_function = old_function
+
+    def _add_constant(self, name: str, node) -> None:
+        """Record a module-level UPPER_CASE assignment as a ``constant`` symbol."""
+        if not (name.isupper() and any(c.isalpha() for c in name)):
+            return
+        line = self.lines[node.lineno - 1].strip() if node.lineno - 1 < len(self.lines) else name
+        self.symbols.append(
+            Symbol(
+                name=name,
+                type="constant",
+                file_path=self.file_path,
+                line_start=node.lineno,
+                line_end=self.get_line_end(node),
+                signature=line[:100],
+            )
+        )
+
+    def visit_Assign(self, node):
+        """Record module-level UPPER_CASE constant assignments."""
+        if self.current_class is None and self.current_function is None:
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    self._add_constant(target.id, node)
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node):
+        """Record module-level annotated UPPER_CASE constant assignments."""
+        if (
+            self.current_class is None
+            and self.current_function is None
+            and isinstance(node.target, ast.Name)
+        ):
+            self._add_constant(node.target.id, node)
         self.generic_visit(node)
 
     def analyze(self) -> list[Symbol]:

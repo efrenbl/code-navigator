@@ -13,6 +13,8 @@ from codenav.go_analyzer import TREE_SITTER_AVAILABLE as GO_TS
 from codenav.go_analyzer import GoAnalyzer
 from codenav.js_ts_analyzer import TREE_SITTER_AVAILABLE as JS_TS
 from codenav.js_ts_analyzer import JavaScriptAnalyzer, TypeScriptAnalyzer
+from codenav.ruby_analyzer import TREE_SITTER_AVAILABLE as RUBY_TS
+from codenav.ruby_analyzer import RubyAnalyzer
 from codenav.rust_analyzer import TREE_SITTER_AVAILABLE as RUST_TS
 from codenav.rust_analyzer import RustAnalyzer
 
@@ -72,6 +74,24 @@ class TestRustCalls:
         assert _deps(syms, "g") == {"h"}
 
 
+@pytest.mark.skipif(not RUBY_TS, reason="tree-sitter Ruby grammar not installed")
+class TestRubyCalls:
+    def test_method_calls(self):
+        src = "class C\n  def m\n    foo()\n    obj.bar(1)\n    puts 'x'\n  end\nend\n"
+        syms = RubyAnalyzer("a.rb", src).analyze()
+        assert _deps(syms, "m") == {"foo", "bar", "puts"}
+
+    def test_singleton_method_calls(self):
+        src = "class C\n  def self.create\n    build()\n    C.new\n  end\nend\n"
+        syms = RubyAnalyzer("a.rb", src).analyze()
+        assert _deps(syms, "create") == {"build", "new"}
+
+    def test_no_calls_is_empty(self):
+        src = "def m\n  @x = 1\nend\n"
+        syms = RubyAnalyzer("a.rb", src).analyze()
+        assert _deps(syms, "m") == set()
+
+
 @pytest.mark.skipif(not DART_TS, reason="tree-sitter Dart grammar not installed")
 class TestDartCalls:
     def test_method_and_member_calls(self):
@@ -106,6 +126,12 @@ class TestUtf8ByteOffsets:
         src = "// 🚀\nfn discover_sessions() { total_count(); }\n"
         syms = RustAnalyzer("a.rs", src).analyze()
         assert {s.name for s in syms} == {"discover_sessions"}
+        assert _deps(syms, "discover_sessions") == {"total_count"}
+
+    @pytest.mark.skipif(not RUBY_TS, reason="tree-sitter Ruby grammar not installed")
+    def test_ruby_names_intact_after_emoji(self):
+        src = "# 🚀\ndef discover_sessions\n  total_count()\nend\n"
+        syms = RubyAnalyzer("a.rb", src).analyze()
         assert _deps(syms, "discover_sessions") == {"total_count"}
 
     @pytest.mark.skipif(not DART_TS, reason="tree-sitter Dart grammar not installed")

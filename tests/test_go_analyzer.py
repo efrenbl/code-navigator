@@ -198,3 +198,93 @@ class TestGoEdgeCases:
         analyzer = GoAnalyzer("bad.go", source)
         symbols = analyzer.analyze()
         assert isinstance(symbols, list)
+
+
+@pytest.mark.skipif(not TREE_SITTER_AVAILABLE, reason="tree-sitter not available")
+class TestGoEnrichment:
+    """v0.4.1 parity features: visibility, vars, generic receivers, return types."""
+
+    def _analyze(self, source):
+        return GoAnalyzer("test.go", source).analyze()
+
+    def test_visibility_exported_vs_unexported(self):
+        symbols = self._analyze("package main\n\nfunc Public() {}\n\nfunc private() {}\n")
+        by_name = {s.name: s for s in symbols}
+        assert by_name["Public"].visibility is None
+        assert by_name["private"].visibility == "private"
+
+    def test_struct_and_interface_visibility(self):
+        symbols = self._analyze(
+            "package main\n\ntype hidden struct{}\n\ntype Visible interface{}\n"
+        )
+        by_name = {s.name: s for s in symbols}
+        assert by_name["hidden"].visibility == "private"
+        assert by_name["Visible"].visibility is None
+
+    def test_package_level_var(self):
+        symbols = self._analyze(
+            "package main\n\n// ErrNotFound is returned when missing.\n"
+            'var ErrNotFound = errors.New("not found")\n'
+        )
+        var = next(s for s in symbols if s.type == "variable")
+        assert var.name == "ErrNotFound"
+        assert var.docstring == "ErrNotFound is returned when missing."
+
+    def test_var_spec_multiple_identifiers(self):
+        symbols = self._analyze("package main\n\nvar a, b = 1, 2\n")
+        names = [s.name for s in symbols if s.type == "variable"]
+        assert names == ["a", "b"]
+
+    def test_function_local_vars_skipped(self):
+        symbols = self._analyze(
+            "package main\n\nfunc run() {\n    var local = 1\n    _ = local\n}\n"
+        )
+        assert [s.name for s in symbols if s.type == "variable"] == []
+
+    def test_const_spec_multiple_identifiers_and_doc(self):
+        symbols = self._analyze(
+            "package main\n\n// Limits for the pool.\nconst MinSize, MaxSize = 1, 10\n"
+        )
+        consts = [s for s in symbols if s.type == "const"]
+        assert [s.name for s in consts] == ["MinSize", "MaxSize"]
+        assert consts[0].docstring == "Limits for the pool."
+
+    def test_generic_receiver_binds_method_to_type(self):
+        symbols = self._analyze(
+            "package main\n\ntype Stack[T any] struct{}\n\nfunc (s *Stack[T]) Push(v T) {}\n"
+        )
+        push = next(s for s in symbols if s.name == "Push")
+        assert push.parent == "Stack"
+        assert push.signature == "func (s *Stack[T]) Push(v T)"
+
+    def test_return_type_first_of_multi_return(self):
+        symbols = self._analyze(
+            "package main\n\nfunc NewUser() (*User, error) { return nil, nil }\n"
+        )
+        assert symbols[0].return_type == "User"
+
+    def test_return_type_qualified_and_generic(self):
+        symbols = self._analyze(
+            "package main\n\nfunc load() pkg.Thing[int] { return pkg.Thing[int]{} }\n"
+        )
+        assert symbols[0].return_type == "Thing"
+
+    def test_return_type_absent(self):
+        symbols = self._analyze("package main\n\nfunc run() {}\n")
+        assert symbols[0].return_type is None
+
+    def test_interface_methods_extracted(self):
+        symbols = self._analyze(
+            "package main\n\n"
+            "type Core interface {\n"
+            "    // Marshal encodes v.\n"
+            "    Marshal(v any) ([]byte, error)\n"
+            "    io.Reader\n"
+            "}\n"
+        )
+        marshal = next(s for s in symbols if s.name == "Marshal")
+        assert marshal.type == "method"
+        assert marshal.parent == "Core"
+        assert marshal.return_type == "byte" or marshal.return_type is None
+        # Embedded interfaces are not symbols.
+        assert not any(s.name == "Reader" for s in symbols)

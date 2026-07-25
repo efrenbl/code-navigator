@@ -222,3 +222,72 @@ class TestRubyEdgeCases:
         # Should not raise
         symbols = analyzer.analyze()
         assert isinstance(symbols, list)
+
+
+@pytest.mark.skipif(not TREE_SITTER_AVAILABLE, reason="tree-sitter not available")
+class TestRubyEnrichment:
+    """v0.4.1 parity features: mixins, visibility, bare calls, constants."""
+
+    def _analyze(self, source):
+        return RubyAnalyzer("test.rb", source).analyze()
+
+    def test_mixins_collected_on_class(self):
+        symbols = self._analyze(
+            "class Foo\n  include Comparable\n  include Enumerable, Sortable\n"
+            "  prepend Auditable\nend\n"
+        )
+        foo = next(s for s in symbols if s.name == "Foo")
+        assert foo.mixins == ["Comparable", "Enumerable", "Sortable", "Auditable"]
+
+    def test_extend_self_and_dynamic_args_skipped(self):
+        symbols = self._analyze("module Bar\n  extend self\n  include make_mod()\nend\n")
+        bar = next(s for s in symbols if s.name == "Bar")
+        assert bar.mixins is None
+
+    def test_scope_resolution_mixin(self):
+        symbols = self._analyze("class Job\n  include Sidekiq::Job\nend\n")
+        job = next(s for s in symbols if s.name == "Job")
+        assert job.mixins == ["Sidekiq::Job"]
+
+    def test_visibility_modifiers(self):
+        symbols = self._analyze(
+            "class Foo\n  def pub; end\n\n  private\n\n  def hidden; end\n\n"
+            "  protected\n\n  def guarded; end\n\n  public\n\n  def open_again; end\nend\n"
+        )
+        by_name = {s.name: s for s in symbols}
+        assert by_name["pub"].visibility is None
+        assert by_name["hidden"].visibility == "private"
+        assert by_name["guarded"].visibility == "protected"
+        assert by_name["open_again"].visibility is None
+
+    def test_bare_calls_in_dependencies(self):
+        symbols = self._analyze(
+            "class Foo\n  def run\n    reset\n    helper()\n    MAX = 1 if false\n  end\nend\n"
+        )
+        run = next(s for s in symbols if s.name == "run")
+        assert "reset" in run.dependencies
+        assert "helper" in run.dependencies
+
+    def test_bare_call_skips_keywords_and_constants(self):
+        symbols = self._analyze(
+            "class Foo\n  def run\n    self\n    nil\n    Logger\n    private\n  end\nend\n"
+        )
+        run = next(s for s in symbols if s.name == "run")
+        for skipped in ("self", "nil", "Logger", "private"):
+            assert skipped not in run.dependencies
+
+    def test_constant_assignment_extracted(self):
+        symbols = self._analyze('MAX_SIZE = 100\n\nclass Foo\n  VERSION = "1.0"\nend\n')
+        consts = {s.name: s for s in symbols if s.type == "constant"}
+        assert "MAX_SIZE" in consts
+        assert consts["MAX_SIZE"].parent is None
+        assert consts["VERSION"].parent == "Foo"
+
+    def test_local_assignment_not_extracted(self):
+        symbols = self._analyze("x = 1\n")
+        assert [s for s in symbols if s.type == "constant"] == []
+
+    def test_nested_class_gains_module_parent(self):
+        symbols = self._analyze("module Outer\n  class Inner\n  end\nend\n")
+        inner = next(s for s in symbols if s.name == "Inner")
+        assert inner.parent == "Outer"
