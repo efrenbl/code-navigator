@@ -30,12 +30,20 @@ import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime
+from functools import partial
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from ._version import __version__
 from .colors import get_colors
 from .gitignore import GitignoreMatcher
+
+
+class _Analyzer(Protocol):
+    """Structural type for language analyzers exposing analyze()."""
+
+    def analyze(self) -> list["Symbol"]: ...
+
 
 # Supported languages and their extensions
 # Bumped whenever index membership or semantics change in a way that makes a
@@ -49,6 +57,9 @@ LANGUAGE_EXTENSIONS = {
     "javascript": [".js", ".jsx", ".mjs"],
     "typescript": [".ts", ".tsx"],
     "java": [".java"],
+    "kotlin": [".kt", ".kts"],
+    "swift": [".swift"],
+    "csharp": [".cs"],
     "go": [".go"],
     "rust": [".rs"],
     "c": [".c", ".h"],
@@ -57,6 +68,30 @@ LANGUAGE_EXTENSIONS = {
     "php": [".php"],
     "dart": [".dart"],
 }
+
+# Languages analyzed by the spec-driven tree-sitter extractor
+# (codenav.languages). Python keeps its stdlib-AST analyzer.
+_SPEC_LANGUAGES = frozenset(
+    {
+        "javascript",
+        "typescript",
+        "ruby",
+        "go",
+        "rust",
+        "dart",
+        "java",
+        "kotlin",
+        "swift",
+        "csharp",
+        "c",
+        "cpp",
+        "php",
+    }
+)
+
+# Spec languages whose fallback prefers ast-grep ([fast]) before regex
+# (the languages ast-grep already supported before they got tree-sitter specs).
+_AST_GREP_TIER: frozenset[str] = frozenset({"java", "c", "cpp", "php"})
 
 DEFAULT_IGNORE_PATTERNS = [
     # Build artifacts and dependencies
@@ -151,6 +186,18 @@ class Symbol:
         parent: For methods, the containing class name.
         dependencies: List of symbols this symbol calls/uses.
         decorators: List of decorator names applied to this symbol.
+        source: Engine that produced the symbol — "ast" (Python AST or
+            tree-sitter), "ast-grep", or "regex". None in maps generated
+            before v2.3.0.
+        visibility: "private" or "protected" when the language exposes it
+            (Go lowercase names, Ruby modifiers, Dart underscore prefix).
+            None means public or unknown (pre-v2.3.0 maps).
+        modifiers: Extra qualifiers such as "static", "async", "abstract",
+            "factory", "getter", "setter". None when there are none.
+        mixins: Modules mixed into a class/module symbol (Ruby
+            include/extend/prepend). None for non-container symbols.
+        return_type: Normalized return type name ("*Foo" → "Foo",
+            "(Foo, error)" → "Foo", "pkg.Foo" → "Foo"). None when unknown.
 
     Example:
         >>> symbol = Symbol(
@@ -171,9 +218,14 @@ class Symbol:
     signature: str | None = None
     docstring: str | None = None
     parent: str | None = None
-    dependencies: list[str] = None
-    decorators: list[str] = None
+    dependencies: list[str] | None = None
+    decorators: list[str] | None = None
     truncated: bool = False  # True if symbol exceeded max line limit during analysis
+    source: str | None = None  # "ast" | "ast-grep" | "regex" (None: pre-v2.3.0 map)
+    visibility: str | None = None  # "private" | "protected" (None: public/unknown)
+    modifiers: list[str] | None = None  # e.g. ["static", "async"], ["factory"]
+    mixins: list[str] | None = None  # Ruby include/extend/prepend module names
+    return_type: str | None = None  # normalized return type name
 
     def __post_init__(self):
         """Initialize mutable default values."""
@@ -181,6 +233,10 @@ class Symbol:
             self.dependencies = []
         if self.decorators is None:
             self.decorators = []
+
+
+# Base classes that mark a ``class`` as an enumeration.
+_ENUM_BASES = frozenset({"Enum", "IntEnum", "StrEnum", "Flag", "IntFlag"})
 
 
 class PythonAnalyzer(ast.NodeVisitor):
@@ -221,6 +277,7 @@ class PythonAnalyzer(ast.NodeVisitor):
         self.lines = source.split("\n")
         self.symbols: list[Symbol] = []
         self.current_class: str | None = None
+        self.current_function: str | None = None
         self.imports: list[str] = []
 
     def get_line_end(self, node) -> int:
@@ -341,9 +398,18 @@ class PythonAnalyzer(ast.NodeVisitor):
         if bases:
             signature += f"({', '.join(bases)})"
 
+        # Classes deriving from an Enum flavour are modelled as enums so map
+        # consumers can render them with the right kind.
+        symbol_type = "class"
+        for base in bases:
+            last = base.split(".")[-1].split("[")[0].strip()
+            if last in _ENUM_BASES:
+                symbol_type = "enum"
+                break
+
         symbol = Symbol(
             name=node.name,
-            type="class",
+            type=symbol_type,
             file_path=self.file_path,
             line_start=node.lineno,
             line_end=self.get_line_end(node),
@@ -353,10 +419,15 @@ class PythonAnalyzer(ast.NodeVisitor):
         )
         self.symbols.append(symbol)
 
+        # A class body resets the enclosing-function scope: its direct methods
+        # take the class as parent, not some outer function.
         old_class = self.current_class
+        old_function = self.current_function
         self.current_class = node.name
+        self.current_function = None
         self.generic_visit(node)
         self.current_class = old_class
+        self.current_function = old_function
 
     def visit_FunctionDef(self, node):
         """Visit a function definition."""
@@ -374,13 +445,25 @@ class PythonAnalyzer(ast.NodeVisitor):
         """
         symbol_type = "method" if self.current_class else "function"
 
+        # Walk the function body without descending into nested function/class
+        # definitions — their calls belong to the nested symbol, not this one.
         calls = []
-        for child in ast.walk(node):
+        stack = list(ast.iter_child_nodes(node))
+        while stack:
+            child = stack.pop()
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue
             if isinstance(child, ast.Call):
                 if isinstance(child.func, ast.Name):
                     calls.append(child.func.id)
                 elif isinstance(child.func, ast.Attribute):
                     calls.append(child.func.attr)
+            stack.extend(ast.iter_child_nodes(child))
+
+        # A method (direct child of a class) is parented on the class; a nested
+        # function is parented on its containing function. This keeps
+        # qualified names unique when two functions define same-named helpers.
+        parent = self.current_class or self.current_function
 
         symbol = Symbol(
             name=node.name,
@@ -390,11 +473,56 @@ class PythonAnalyzer(ast.NodeVisitor):
             line_end=self.get_line_end(node),
             signature=self.get_signature(node),
             docstring=self.get_docstring(node),
-            parent=self.current_class,
-            dependencies=list(set(calls)),
+            parent=parent,
+            # Sorted so the index is deterministic across runs (matches the
+            # tree-sitter analyzers, which sort callees too).
+            dependencies=sorted(set(calls)),
             decorators=self.get_decorators(node),
         )
         self.symbols.append(symbol)
+
+        # Inside this function body, nested defs are children of it (not of an
+        # outer class); clear current_class so they don't look like methods.
+        old_class = self.current_class
+        old_function = self.current_function
+        self.current_class = None
+        self.current_function = node.name
+        self.generic_visit(node)
+        self.current_class = old_class
+        self.current_function = old_function
+
+    def _add_constant(self, name: str, node) -> None:
+        """Record a module-level UPPER_CASE assignment as a ``constant`` symbol."""
+        if not (name.isupper() and any(c.isalpha() for c in name)):
+            return
+        line = self.lines[node.lineno - 1].strip() if node.lineno - 1 < len(self.lines) else name
+        self.symbols.append(
+            Symbol(
+                name=name,
+                type="constant",
+                file_path=self.file_path,
+                line_start=node.lineno,
+                line_end=self.get_line_end(node),
+                signature=line[:100],
+            )
+        )
+
+    def visit_Assign(self, node):
+        """Record module-level UPPER_CASE constant assignments."""
+        if self.current_class is None and self.current_function is None:
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    self._add_constant(target.id, node)
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node):
+        """Record module-level annotated UPPER_CASE constant assignments."""
+        if (
+            self.current_class is None
+            and self.current_function is None
+            and isinstance(node.target, ast.Name)
+        ):
+            self._add_constant(node.target.id, node)
         self.generic_visit(node)
 
     def analyze(self) -> list[Symbol]:
@@ -411,6 +539,8 @@ class PythonAnalyzer(ast.NodeVisitor):
             self.visit(tree)
         except SyntaxError as e:
             print(f"Syntax error in {self.file_path}: {e}", file=sys.stderr)
+        for symbol in self.symbols:
+            symbol.source = "ast"
         return self.symbols
 
 
@@ -476,6 +606,48 @@ class GenericAnalyzer:
             "enum": r"enum\s+(\w+)\s*\{",
             "extension": r"extension\s+(\w+)\s+on\s+\w+",
             "function": r"^[ \t]*(?!(?:if|for|while|switch|catch|return|do|else|throw|new|await|assert|yield)\b)(?:Future(?:<[^>]+>)?|void|String|int|double|bool|num|dynamic|Widget|List(?:<[^>]+>)?|Map(?:<[^>]+>)?|Set(?:<[^>]+>)?|Iterable(?:<[^>]+>)?|Stream(?:<[^>]+>)?|[A-Z]\w*\??)\s+(\w+)\s*\([^)]*\)\s*(?:async\s*\*?\s*)?\{",
+        },
+        "kotlin": {
+            "function": r"(?:suspend\s+)?fun\s+(?:<[^>]*>\s+)?(?:[\w.<>?]+\.)?(\w+)\s*\(",
+            "class": r"(?:abstract\s+|open\s+|data\s+|sealed\s+|inner\s+|annotation\s+)*class\s+(\w+)",
+            "interface": r"(?:fun\s+)?interface\s+(\w+)",
+            "object": r"(?:^|\s)object\s+(\w+)",
+            "type": r"typealias\s+(\w+)",
+        },
+        "swift": {
+            "function": r"func\s+(\w+)\s*(?:<[^>]*>)?\s*\(",
+            "class": r"(?:final\s+|open\s+)?class\s+(\w+)",
+            "struct": r"struct\s+(\w+)",
+            "protocol": r"protocol\s+(\w+)",
+            "enum": r"(?:indirect\s+)?enum\s+(\w+)",
+            "extension": r"extension\s+([\w.]+)",
+        },
+        "csharp": {
+            "class": r"(?:public\s+|private\s+|protected\s+|internal\s+|static\s+|sealed\s+|abstract\s+|partial\s+)*class\s+(\w+)",
+            "interface": r"interface\s+(\w+)",
+            "struct": r"(?:readonly\s+)?(?:record\s+)?struct\s+(\w+)",
+            "enum": r"enum\s+(\w+)",
+            "method": r"(?:public|private|protected|internal|static|virtual|override|async|sealed)\s+[\w<>\[\],?\s]+?\b(\w+)\s*\([^)]*\)\s*(?:\{|=>)",
+        },
+        "c": {
+            "function": r"^[A-Za-z_][\w\s\*]*?\b(\w+)\s*\([^;)]*\)\s*\{",
+            "struct": r"(?:typedef\s+)?struct\s+(\w+)\s*\{",
+            "enum": r"(?:typedef\s+)?enum\s+(\w+)\s*\{",
+            "union": r"(?:typedef\s+)?union\s+(\w+)\s*\{",
+        },
+        "cpp": {
+            "function": r"^[A-Za-z_][\w:\s\*&<>,~]*?\b([\w~]+)\s*\([^;)]*\)\s*(?:const\s*)?(?:noexcept\s*)?\{",
+            "class": r"class\s+(\w+)",
+            "struct": r"struct\s+(\w+)\s*[\{:]",
+            "namespace": r"namespace\s+(\w+)",
+            "enum": r"enum\s+(?:class\s+)?(\w+)",
+        },
+        "php": {
+            "function": r"function\s+(\w+)\s*\(",
+            "class": r"(?:abstract\s+|final\s+)?class\s+(\w+)",
+            "interface": r"interface\s+(\w+)",
+            "trait": r"trait\s+(\w+)",
+            "enum": r"enum\s+(\w+)",
         },
     }
 
@@ -591,6 +763,7 @@ class GenericAnalyzer:
                         line_end=line_end,
                         signature=match.group(0).strip()[:100],
                         truncated=was_truncated,
+                        source="regex",
                     )
                 )
 
@@ -612,6 +785,7 @@ def _astgrep_to_symbol(ag_symbol: Any) -> Symbol:
         line_end=ag_symbol.line_end,
         signature=ag_symbol.signature,
         parent=ag_symbol.parent,
+        source="ast-grep",
     )
 
 
@@ -879,6 +1053,9 @@ class CodeNavigator:
         self.max_symbol_lines = max_symbol_lines
         self.symbols: list[Symbol] = []
         self.file_hashes: dict[str, str] = {}
+        # Raw import specifiers per file (rel_path -> [spec, ...]); resolved to
+        # internal file paths in generate_map for the per-file "imports" key.
+        self.file_imports: dict[str, list[str]] = {}
         self._lang_code_lines: dict[str, int] = {}
         self.stats: dict[str, Any] = {
             "files_processed": 0,
@@ -1031,6 +1208,7 @@ class CodeNavigator:
             self.file_hashes[rel_path] = self.hash_file(content)
 
             language = self.get_language(file_path)
+            analyzer: _Analyzer
             if language is not None:
                 # Cheap per-language code-volume tally, so the coverage invariant
                 # can tell a genuinely broken analyzer (real code, zero symbols)
@@ -1040,41 +1218,32 @@ class CodeNavigator:
                 )
             if language == "python":
                 analyzer = PythonAnalyzer(rel_path, content)
-            elif language == "javascript":
-                from .js_ts_analyzer import JavaScriptAnalyzer
+            elif language in _SPEC_LANGUAGES:
+                from .languages import get_spec
+                from .languages.extractor import TreeSitterExtractor
 
-                is_jsx = file_path.suffix.lower() in (".jsx",)
-                analyzer = JavaScriptAnalyzer(rel_path, content, is_jsx=is_jsx)
-            elif language == "typescript":
-                from .js_ts_analyzer import TypeScriptAnalyzer
-
-                is_tsx = file_path.suffix.lower() in (".tsx",)
-                analyzer = TypeScriptAnalyzer(rel_path, content, is_tsx=is_tsx)
-            elif language == "ruby":
-                from .ruby_analyzer import RubyAnalyzer
-
-                analyzer = RubyAnalyzer(rel_path, content)
-            elif language == "go":
-                from .go_analyzer import GoAnalyzer
-
-                analyzer = GoAnalyzer(rel_path, content)
-            elif language == "rust":
-                from .rust_analyzer import RustAnalyzer
-
-                analyzer = RustAnalyzer(rel_path, content)
-            elif language == "dart":
-                from .dart_analyzer import DartAnalyzer
-
-                analyzer = DartAnalyzer(rel_path, content)
+                # For the ast-grep tier the extractor's fallback chain is
+                # tree-sitter → ast-grep ([fast]) → regex; otherwise the
+                # extractor degrades straight to the regex GenericAnalyzer.
+                fallback = None
+                if language in _AST_GREP_TIER:
+                    fallback = partial(self._analyze_fallback, rel_path, content, language)
+                spec = get_spec(language)
+                assert spec is not None
+                analyzer = TreeSitterExtractor(rel_path, content, spec, fallback=fallback)
             elif language:
-                # Languages with no dedicated AST analyzer (Java, C, C++, PHP):
-                # use ast-grep when available (real AST → parent linkage,
-                # better signatures), else the regex fallback.
+                # Languages with no tree-sitter spec: use ast-grep when
+                # available (real AST → parent linkage, better signatures),
+                # else the regex fallback.
                 return self._analyze_fallback(rel_path, content, language)
             else:
                 return []
 
-            return analyzer.analyze()
+            symbols = analyzer.analyze()
+            # Capture raw import specifiers so generate_map can resolve them to
+            # internal file paths for the per-file "imports" key.
+            self.file_imports[rel_path] = list(getattr(analyzer, "imports", []) or [])
+            return symbols
 
         except Exception as e:
             self.stats["errors"] += 1
@@ -1392,6 +1561,9 @@ class CodeNavigator:
         for rel_path in unchanged_files:
             file_info = existing_files[rel_path]
             self.file_hashes[rel_path] = file_info.get("hash", "")
+            # Carry over already-resolved imports; generate_map re-resolves them
+            # (resolved file paths round-trip through the resolver's exact match).
+            self.file_imports[rel_path] = list(file_info.get("imports", []) or [])
 
             # Convert stored symbols back to Symbol objects
             for sym_data in file_info.get("symbols", []):
@@ -1407,6 +1579,11 @@ class CodeNavigator:
                     dependencies=sym_data.get("deps") or [],
                     decorators=sym_data.get("decorators") or [],
                     truncated=sym_data.get("truncated", False),
+                    source=sym_data.get("source"),
+                    visibility=sym_data.get("visibility"),
+                    modifiers=sym_data.get("modifiers"),
+                    mixins=sym_data.get("mixins"),
+                    return_type=sym_data.get("return_type"),
                 )
                 self.symbols.append(symbol)
 
@@ -1447,6 +1624,67 @@ class CodeNavigator:
 
         return self.generate_map()
 
+    def _attach_resolved_imports(self, files_map: dict[str, dict[str, Any]]) -> None:
+        """Resolve each file's raw import specifiers to internal file paths.
+
+        Adds an ``"imports"`` key (list of repo-relative file paths) to every
+        entry in ``files_map``. Specifiers that resolve outside the repo, or not
+        at all (external libraries), are omitted. Best-effort: any resolver
+        failure leaves imports empty rather than aborting the scan.
+        """
+        for file_path in files_map:
+            files_map[file_path].setdefault("imports", [])
+
+        if not any(self.file_imports.values()):
+            return
+
+        try:
+            from .import_resolver import ImportResolver
+
+            resolver = ImportResolver(str(self.root_path))
+            resolver.load_aliases_from_tsconfig()
+            resolver.load_aliases_from_pyproject()
+            resolver.build_index()
+        except Exception:
+            return
+
+        known_files = set(files_map)
+        for file_path, raw_imports in self.file_imports.items():
+            if file_path not in files_map:
+                continue
+            resolved: list[str] = []
+            seen: set[str] = set()
+            for spec in raw_imports:
+                target = self._resolve_one(resolver, file_path, spec)
+                # Keep only internal files that we actually mapped, and never a
+                # self-import.
+                if target and target in known_files and target != file_path and target not in seen:
+                    seen.add(target)
+                    resolved.append(target)
+            files_map[file_path]["imports"] = resolved
+
+    @staticmethod
+    def _resolve_one(resolver: Any, file_path: str, spec: str) -> str | None:
+        """Resolve a single import spec, retrying shorter dotted prefixes.
+
+        Python ``from pkg.mod import name`` is recorded as ``pkg.mod.name``,
+        which does not name a file. Retry ``pkg.mod`` then ``pkg`` so the import
+        still resolves to the module file.
+        """
+        candidate = spec
+        while candidate:
+            try:
+                result = resolver.resolve(file_path, candidate)
+            except Exception:
+                return None
+            path = result.path
+            if result.found and isinstance(path, str):
+                return path
+            if "." not in candidate:
+                return None
+            candidate = candidate.rsplit(".", 1)[0]
+        return None
+
     def generate_map(self) -> dict[str, Any]:
         """Generate the code map structure from collected symbols.
 
@@ -1481,7 +1719,26 @@ class CodeNavigator:
             # Only include truncated flag when True (keeps output compact)
             if symbol.truncated:
                 symbol_dict["truncated"] = True
+            # Engine provenance; omitted when unknown (pre-v2.3.0 round-trips)
+            if symbol.source:
+                symbol_dict["source"] = symbol.source
+            # v2.3.0 enrichment keys — emitted only when set (public visibility
+            # is normalized to None upstream, keeping the map compact)
+            if symbol.visibility:
+                symbol_dict["visibility"] = symbol.visibility
+            if symbol.modifiers:
+                symbol_dict["modifiers"] = symbol.modifiers
+            if symbol.mixins:
+                symbol_dict["mixins"] = symbol.mixins
+            if symbol.return_type:
+                symbol_dict["return_type"] = symbol.return_type
             files_map[symbol.file_path]["symbols"].append(symbol_dict)
+
+        # Resolve raw import specifiers to internal repo file paths so map
+        # consumers can follow file-to-file import relationships. Unresolved /
+        # external imports (third-party libraries) are dropped — only repo
+        # files are linked.
+        self._attach_resolved_imports(files_map)
 
         symbol_index = {}
         for symbol in self.symbols:

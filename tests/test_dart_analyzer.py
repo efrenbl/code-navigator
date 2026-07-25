@@ -17,6 +17,14 @@ def _names(symbols, type_=None):
     return [s.name for s in symbols]
 
 
+class TestTreeSitterAvailability:
+    def test_tree_sitter_flag_is_boolean(self):
+        assert isinstance(TREE_SITTER_AVAILABLE, bool)
+
+    def test_can_import_analyzer_regardless_of_tree_sitter(self):
+        assert DartAnalyzer is not None
+
+
 class TestDartAnalyzerFallback:
     """GenericAnalyzer regex fallback — always runs regardless of tree-sitter."""
 
@@ -232,3 +240,89 @@ class TestDartIntegration:
         assert "Real" in all_symbols
         assert "ShouldBeIgnored" not in all_symbols
         assert "Generated" not in all_symbols
+
+
+@pytest.mark.skipif(not TREE_SITTER_AVAILABLE, reason="tree-sitter not available")
+class TestDartEnrichment:
+    """v0.4.1 parity features: constructors, getters/setters, modifiers, enums."""
+
+    SOURCE = """
+class Foo {
+  Foo();
+  Foo._internal();
+  factory Foo.create() => Foo._internal();
+  int get count => 1;
+  set count(int v) {}
+  static Future<String> load() async {
+    final w = new Widget();
+    const e = const EdgeInsets.all(8.0);
+    super.dispose();
+    return "x";
+  }
+  void _hidden() {}
+}
+"""
+
+    def _analyze(self, source=None):
+        return DartAnalyzer("test.dart", source or self.SOURCE).analyze()
+
+    def test_plain_constructor(self):
+        ctors = [s for s in self._analyze() if s.type == "constructor"]
+        plain = next(s for s in ctors if s.name == "Foo")
+        assert plain.parent == "Foo"
+        assert plain.return_type == "Foo"
+
+    def test_named_constructor_uses_ctor_name(self):
+        ctors = [s for s in self._analyze() if s.type == "constructor"]
+        named = next(s for s in ctors if s.name == "_internal")
+        assert named.visibility == "private"
+        assert named.signature == "Foo._internal()"
+
+    def test_factory_constructor(self):
+        ctors = [s for s in self._analyze() if s.type == "constructor"]
+        factory = next(s for s in ctors if s.name == "create")
+        assert factory.modifiers == ["factory"]
+        assert "_internal" in factory.dependencies
+
+    def test_getter_and_setter(self):
+        methods = [s for s in self._analyze() if s.name == "count"]
+        assert sorted(m.modifiers[0] for m in methods) == ["getter", "setter"]
+        getter = next(m for m in methods if m.modifiers == ["getter"])
+        assert getter.return_type == "int"
+
+    def test_static_async_modifiers_and_calls(self):
+        load = next(s for s in self._analyze() if s.name == "load")
+        assert load.modifiers == ["static", "async"]
+        assert load.return_type == "Future"
+        for callee in ("Widget", "all", "dispose"):
+            assert callee in load.dependencies
+
+    def test_private_method_visibility(self):
+        hidden = next(s for s in self._analyze() if s.name == "_hidden")
+        assert hidden.visibility == "private"
+
+    def test_enum_members_have_enum_parent(self):
+        symbols = self._analyze("enum Status { active, inactive }\n")
+        members = [s for s in symbols if s.type == "enum_member"]
+        assert [(s.name, s.parent) for s in members] == [
+            ("active", "Status"),
+            ("inactive", "Status"),
+        ]
+
+    def test_type_alias_and_top_level_const(self):
+        symbols = self._analyze(
+            "typedef JsonMap = Map<String, dynamic>;\nconst int maxRetries = 3;\n"
+        )
+        assert next(s for s in symbols if s.name == "JsonMap").type == "type"
+        assert next(s for s in symbols if s.name == "maxRetries").type == "const"
+
+    def test_exports_recorded_as_imports(self):
+        analyzer = DartAnalyzer("test.dart", "import 'package:a/a.dart';\nexport 'src/b.dart';\n")
+        analyzer.analyze()
+        assert analyzer.imports == ["package:a/a.dart", "src/b.dart"]
+
+    def test_misparsed_constructor_guard(self):
+        # A constructor-looking signature whose class doesn't match the
+        # enclosing scope must not be emitted.
+        symbols = self._analyze("class Foo {\n  Bar.baz();\n}\n")
+        assert [s for s in symbols if s.type == "constructor"] == []
