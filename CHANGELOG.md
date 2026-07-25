@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-07-25
+
+### Documentation
+- Added `codenav_lookup` to the tools table in the README (it shipped in 2.4.0
+  but was missing from the list).
+- Fixed the CHANGELOG comparison links and set `requires-python` consistently
+  to 3.10+ in the FAQ.
+- Removed internal-only documents that don't belong in the published repo:
+  superseded design notes, an internal competitive/régimen analysis, a stale
+  architecture diagram, a duplicate improvements log, and the A/B benchmark
+  tooling under `scripts/`. The product, its tests and the user docs are
+  unchanged.
+
 ## [2.4.0] - 2026-07-25
 
 ### Added
@@ -30,11 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Reverse caller index.** `CodeSearcher.find_callers(name)` answers "who calls
   X" — the reverse of the dependency edges, the relation a plain `grep` cannot
   resolve — built once from the map and cached.
-- **A/B evaluation harness** (`scripts/agent-eval/`): `run-ab.sh` isolates arms
-  by `--mcp-config` only; `parse-run.mjs` reads every metric from the
-  stream-json trace; `TASKS.md` pre-registers tasks + rubrics; `setup-corpus.sh`
-  clones and indexes the public corpora. Plus `docs/competitive-and-regimen.md`
-  with measured per-language coverage and the usage régimen.
 
 ## [2.3.0] - 2026-07-25
 
@@ -525,7 +533,12 @@ None at this time.
 
 ---
 
-[Unreleased]: https://github.com/efrenbl/code-navigator/compare/v2.2.7...HEAD
+[Unreleased]: https://github.com/efrenbl/code-navigator/compare/v2.4.1...HEAD
+[2.4.1]: https://github.com/efrenbl/code-navigator/compare/v2.4.0...v2.4.1
+[2.4.0]: https://github.com/efrenbl/code-navigator/compare/v2.3.0...v2.4.0
+[2.3.0]: https://github.com/efrenbl/code-navigator/compare/v2.2.9...v2.3.0
+[2.2.9]: https://github.com/efrenbl/code-navigator/compare/v2.2.8...v2.2.9
+[2.2.8]: https://github.com/efrenbl/code-navigator/compare/v2.2.7...v2.2.8
 [2.2.7]: https://github.com/efrenbl/code-navigator/compare/v2.2.6...v2.2.7
 [2.2.1]: https://github.com/efrenbl/code-navigator/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/efrenbl/code-navigator/compare/v2.1.0...v2.2.0

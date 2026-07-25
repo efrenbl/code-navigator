@@ -141,8 +141,9 @@ Claude will automatically use the Code Navigator tools to explore efficiently.
 | Tool | Purpose | When to Use |
 |------|---------|-------------|
 | `codenav_scan` | Index codebase | First step for any new project |
-| `codenav_search` | Find symbols | Looking for specific function/class |
-| `codenav_read` | Read lines | After finding symbol location |
+| `codenav_lookup` | Locate + body + callers in one call | Answering "where is X / what does it do / who calls it" |
+| `codenav_search` | Find symbols (locations only) | When you want locations without bodies |
+| `codenav_read` | Read lines | Widening one match beyond the lookup budget |
 | `codenav_stats` | Codebase overview | Understanding project size |
 | `codenav_get_hubs` | Find central files | Architecture analysis |
 | `codenav_get_structure` | File outline | Before reading a file |

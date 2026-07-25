@@ -23,7 +23,7 @@ Yes! While designed for Claude Code, the tools are standalone and work with any 
 
 ### What Python version is required?
 
-Python 3.8 or higher.
+Python 3.10 or higher.
 
 ### Are there any dependencies?
 
