@@ -954,7 +954,14 @@ class CodeNavigator:
         try:
             rel = path.relative_to(self.root_path).as_posix()
         except ValueError:
-            return False
+            # ``root_path`` is resolved (symlinks collapsed). A caller may pass
+            # an unresolved path — e.g. on macOS a tempdir is /var/... symlinked
+            # to /private/var/... — so retry against the resolved path before
+            # giving up (the old substring test was symlink-insensitive).
+            try:
+                rel = path.resolve().relative_to(self.root_path).as_posix()
+            except ValueError:
+                return False
         if rel in ("", "."):
             return False
         if is_dir is None:

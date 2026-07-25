@@ -269,3 +269,22 @@ class TestGitignoreOracle:
         exclude.parent.mkdir(parents=True, exist_ok=True)
         exclude.write_text("*.key\n")
         _assert_agrees(repo, [("secret.key", False), ("a/b.key", False)])
+
+
+class TestSymlinkedRoot:
+    """A caller may pass an unresolved path under a symlinked root (macOS /var)."""
+
+    def test_should_ignore_with_symlinked_root(self, tmp_path):
+        from pathlib import Path
+
+        from codenav.code_navigator import CodeNavigator
+
+        real = tmp_path / "real"
+        real.mkdir()
+        link = tmp_path / "link"
+        os.symlink(real, link)
+        mapper = CodeNavigator(str(link))  # root_path resolves the symlink
+        # Paths built from the unresolved link must still match ignore rules.
+        assert mapper.should_ignore(Path(link) / "node_modules" / "test.js")
+        assert mapper.should_ignore(Path(link) / ".git" / "config")
+        assert not mapper.should_ignore(Path(link) / "src" / "main.py")
