@@ -22,7 +22,6 @@ Attributes:
 
 import argparse
 import ast
-import fnmatch
 import json
 import os
 import re
@@ -37,6 +36,7 @@ from typing import Any, Protocol
 
 from ._version import __version__
 from .colors import get_colors
+from .gitignore import GitignoreMatcher
 
 
 class _Analyzer(Protocol):
@@ -46,6 +46,12 @@ class _Analyzer(Protocol):
 
 
 # Supported languages and their extensions
+# Bumped whenever index membership or semantics change in a way that makes a
+# previously-generated map unsafe to reuse incrementally. 2.2.9 bumps to "2":
+# the gitignore fix changes which files belong in the index, so a "1.0" map
+# built by the buggy substring matcher is discarded and rebuilt.
+INDEX_FORMAT_VERSION = "2"
+
 LANGUAGE_EXTENSIONS = {
     "python": [".py"],
     "javascript": [".js", ".jsx", ".mjs"],
@@ -796,11 +802,23 @@ def coverage_summary_line(stats: dict[str, Any]) -> str:
         ext_str = " ".join(f"{ext}:{n}" for ext, n in top)
         parts.append(f"unmapped {unmapped} ({ext_str})" if ext_str else f"unmapped {unmapped}")
     if stats.get("files_skipped"):
-        parts.append(f"skipped {stats['files_skipped']}")
+        causes = [
+            (k[len("skipped_") :], v)
+            for k, v in sorted(stats.items())
+            if k.startswith("skipped_") and v
+        ]
+        cause_str = " ".join(f"{name}:{n}" for name, n in causes)
+        parts.append(
+            f"skipped {stats['files_skipped']} ({cause_str})"
+            if cause_str
+            else f"skipped {stats['files_skipped']}"
+        )
     if "coverage_pct" in stats:
         parts.append(f"coverage {stats['coverage_pct']}%")
     if stats.get("symbols_truncated"):
         parts.append(f"truncated {stats['symbols_truncated']}")
+    if stats.get("coverage_gaps"):
+        parts.append(f"GAPS {','.join(stats['coverage_gaps'])}")
     return " · ".join(parts)
 
 
@@ -888,6 +906,39 @@ class GitIntegration:
                 pass
 
         return patterns
+
+    @staticmethod
+    def _read_pattern_file(path: Path) -> list[str]:
+        try:
+            return path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return []
+
+    def get_info_exclude_patterns(self) -> list[str]:
+        """Raw lines of ``.git/info/exclude`` (repo-local, uncommitted ignores)."""
+        return self._read_pattern_file(self.root_path / ".git" / "info" / "exclude")
+
+    def get_core_excludes_patterns(self) -> list[str]:
+        """Raw lines of the user's ``core.excludesFile`` (global gitignore)."""
+        if not self.available:
+            return []
+        try:
+            result = subprocess.run(
+                ["git", "config", "--get", "core.excludesFile"],
+                cwd=self.root_path,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            return []
+        path_str = result.stdout.strip() if result.returncode == 0 else ""
+        if not path_str:
+            default = Path.home() / ".config" / "git" / "ignore"
+            if not default.exists():
+                return []
+            path_str = str(default)
+        return self._read_pattern_file(Path(path_str).expanduser())
 
     def get_files_changed_since(self, commit: str) -> set[str]:
         """Get files that changed since a specific commit.
@@ -1005,7 +1056,8 @@ class CodeNavigator:
         # Raw import specifiers per file (rel_path -> [spec, ...]); resolved to
         # internal file paths in generate_map for the per-file "imports" key.
         self.file_imports: dict[str, list[str]] = {}
-        self.stats = {
+        self._lang_code_lines: dict[str, int] = {}
+        self.stats: dict[str, Any] = {
             "files_processed": 0,
             "symbols_found": 0,
             "errors": 0,
@@ -1019,8 +1071,11 @@ class CodeNavigator:
         self._git = GitIntegration(self.root_path)
         self._git_tracked_files: set[str] | None = None
 
-        # Add gitignore patterns if requested
-        if self.use_gitignore and self._git.available:
+        # Add gitignore patterns if requested. A ``.gitignore`` is a plain file
+        # and the matcher is self-contained, so we honor it even outside a git
+        # repo (tarball exports, worktrees). These are kept on ``ignore_patterns``
+        # (a documented attribute) and also feed the semantic matcher below.
+        if self.use_gitignore:
             gitignore_patterns = self._git.get_gitignore_patterns()
             self.ignore_patterns.extend(gitignore_patterns)
 
@@ -1028,25 +1083,67 @@ class CodeNavigator:
         if self.git_only and self._git.available:
             self._git_tracked_files = self._git.get_tracked_files()
 
-    def should_ignore(self, path: Path) -> bool:
-        """Check if a path should be ignored during scanning.
+        # Real gitignore-semantics matcher (replaces the old substring test).
+        # Codenav defaults + user patterns + root .gitignore live at root scope;
+        # nested .gitignore files are folded in per directory during the walk.
+        self._ignore_matcher = GitignoreMatcher()
+        self._ignore_matcher.add_patterns(self.ignore_patterns, "")
+        self._nested_gitignore_dirs: set[str] = set()
+        # .git/info/exclude and core.excludesFile genuinely need a git repo.
+        if self.use_gitignore and self._git.available:
+            self._ignore_matcher.add_patterns(self._git.get_info_exclude_patterns(), "")
+            self._ignore_matcher.add_patterns(self._git.get_core_excludes_patterns(), "")
+
+    def _load_nested_gitignore(self, dir_abs: Path) -> None:
+        """Fold a directory's ``.gitignore`` into the matcher, scoped to that dir.
+
+        No-op unless ``use_gitignore`` is set. Called top-down during the walk so
+        deeper files, appended later, override shallower ones (last-match-wins).
+        """
+        if not self.use_gitignore:
+            return
+        try:
+            rel = dir_abs.relative_to(self.root_path).as_posix()
+        except ValueError:
+            return
+        if rel in ("", ".") or rel in self._nested_gitignore_dirs:
+            return  # root handled in __init__; each dir folded once
+        gitignore = dir_abs / ".gitignore"
+        if gitignore.is_file():
+            self._nested_gitignore_dirs.add(rel)
+            self._ignore_matcher.add_patterns(GitIntegration._read_pattern_file(gitignore), rel)
+
+    def should_ignore(self, path: Path, is_dir: bool | None = None) -> bool:
+        """Check if a path should be ignored, using real gitignore semantics.
+
+        Matches on path components (never as a substring, the historical bug),
+        with anchoring, ``dir/``, ``**`` and negation handled by
+        :class:`~codenav.gitignore.GitignoreMatcher`.
 
         Args:
-            path: Path to check.
+            path: Path to check (absolute, under the scan root).
+            is_dir: Whether the path is a directory. Inferred from disk when
+                omitted; the walk passes it explicitly to avoid a stat.
 
         Returns:
-            True if the path matches any ignore pattern or is not git-tracked.
+            True if the path matches the ignore rules.
         """
-        path_str = str(path)
-        name = path.name
-
-        for pattern in self.ignore_patterns:
-            if fnmatch.fnmatch(name, pattern):
-                return True
-            if pattern in path_str:
-                return True
-
-        return False
+        try:
+            rel = path.relative_to(self.root_path).as_posix()
+        except ValueError:
+            # ``root_path`` is resolved (symlinks collapsed). A caller may pass
+            # an unresolved path — e.g. on macOS a tempdir is /var/... symlinked
+            # to /private/var/... — so retry against the resolved path before
+            # giving up (the old substring test was symlink-insensitive).
+            try:
+                rel = path.resolve().relative_to(self.root_path).as_posix()
+            except ValueError:
+                return False
+        if rel in ("", "."):
+            return False
+        if is_dir is None:
+            is_dir = path.is_dir()
+        return self._ignore_matcher.is_ignored(rel, is_dir)
 
     def _is_git_tracked(self, file_path: Path) -> bool:
         """Check if a file is tracked by git.
@@ -1112,6 +1209,13 @@ class CodeNavigator:
 
             language = self.get_language(file_path)
             analyzer: _Analyzer
+            if language is not None:
+                # Cheap per-language code-volume tally, so the coverage invariant
+                # can tell a genuinely broken analyzer (real code, zero symbols)
+                # from a legitimately symbol-less file (an empty __init__.py).
+                self._lang_code_lines[language] = self._lang_code_lines.get(language, 0) + sum(
+                    1 for ln in content.splitlines() if ln.strip()
+                )
             if language == "python":
                 analyzer = PythonAnalyzer(rel_path, content)
             elif language in _SPEC_LANGUAGES:
@@ -1178,19 +1282,88 @@ class CodeNavigator:
         exts = self.stats["unmapped_extensions"]
         exts[ext] = exts.get(ext, 0) + 1
 
+    def _record_skip(self, file_path: Path, cause: str = "gitignore") -> None:
+        """Record a file skipped by an ignore rule, keyed by distinguishable cause.
+
+        Separating causes is what lets ``errors: 0`` stop coexisting with a fifth
+        of the code silently missing: a reader can tell "ignored on purpose" from
+        "the parser choked" from "no analyzer for this extension".
+        """
+        self.stats["files_skipped"] += 1
+        key = f"skipped_{cause}"
+        self.stats[key] = self.stats.get(key, 0) + 1
+
     def _finalize_coverage(self, mapped_total: int) -> None:
         """Compute derived coverage metrics after a scan completes.
 
         ``coverage_pct`` is mapped files over (mapped + unmapped-by-extension);
         ignored/skipped files are excluded from the denominator.
+
+        Also builds the per-language breakdown and the coverage invariant: a
+        supported language present on disk that produced **zero** symbols across
+        every one of its files means its analyzer silently broke. That is an
+        error, not a statistic — an index that reports ``errors: 0`` while a
+        fifth of the code is missing is worse than no index, because the agent
+        concludes "not in the code" when the truth is "not in the index".
         """
         self.stats["symbols_found"] = len(self.symbols)
         self.stats["symbols_truncated"] = sum(1 for s in self.symbols if s.truncated)
         denom = mapped_total + self.stats["files_unmapped"]
         self.stats["coverage_pct"] = round(100 * mapped_total / denom, 1) if denom else 100.0
 
+        # Per-language: files analyzed (from file_hashes) vs files that yielded
+        # at least one symbol.
+        per_language: dict[str, dict[str, int]] = {}
+        for rel_path in self.file_hashes:
+            lang = self.get_language(Path(rel_path))
+            if lang is None:
+                continue
+            entry = per_language.setdefault(
+                lang, {"files": 0, "files_with_symbols": 0, "symbols": 0}
+            )
+            entry["files"] += 1
+        files_with_symbols: dict[str, set[str]] = {}
+        for symbol in self.symbols:
+            lang = self.get_language(Path(symbol.file_path))
+            if lang is None:
+                continue
+            entry = per_language.setdefault(
+                lang, {"files": 0, "files_with_symbols": 0, "symbols": 0}
+            )
+            entry["symbols"] += 1
+            files_with_symbols.setdefault(lang, set()).add(symbol.file_path)
+        for lang, files in files_with_symbols.items():
+            per_language[lang]["files_with_symbols"] = len(files)
+
+        self.stats["per_language"] = per_language
+        # A gap = a language with real code volume (not just an empty file) whose
+        # analyzer extracted nothing anywhere.
+        broken = sorted(
+            lang
+            for lang, e in per_language.items()
+            if e["files"] >= self.MIN_FILES_FOR_GAP
+            and e["files_with_symbols"] == 0
+            and self._lang_code_lines.get(lang, 0) >= self.MIN_CODE_LINES_FOR_GAP
+        )
+        self.stats["coverage_gaps"] = broken
+        if broken:
+            self.stats["errors"] += len(broken)
+            print(
+                "ERROR: coverage invariant violated — these languages have source "
+                f"files but zero extracted symbols: {', '.join(broken)}",
+                file=sys.stderr,
+            )
+
     # Maximum time allowed for a scan operation (seconds)
     SCAN_TIMEOUT = 30
+
+    # A language is only flagged as a broken-analyzer gap when it has several
+    # files AND real code volume yet zero symbols anywhere — thresholds chosen so
+    # a stray empty __init__.py or a comment-only file never triggers the hard
+    # exit, but a genuinely dead analyzer (dozens of files, nothing extracted)
+    # always does.
+    MIN_FILES_FOR_GAP = 3
+    MIN_CODE_LINES_FOR_GAP = 30
 
     def scan(self) -> dict[str, Any]:
         """Scan the entire codebase and generate a code map.
@@ -1222,17 +1395,19 @@ class CodeNavigator:
                 timed_out = True
                 print("Warning: scan timed out, returning partial results", file=sys.stderr)
                 break
-            dirs[:] = [d for d in dirs if not self.should_ignore(Path(root) / d)]
+            self._load_nested_gitignore(Path(root))
+            dirs[:] = [d for d in dirs if not self.should_ignore(Path(root) / d, is_dir=True)]
 
             for file in files:
                 file_path = Path(root) / file
-                if self.should_ignore(file_path):
-                    self.stats["files_skipped"] += 1
+                if self.should_ignore(file_path, is_dir=False):
+                    self._record_skip(file_path)
                     continue
 
                 # Skip if not git-tracked (when git_only mode is enabled)
                 if not self._is_git_tracked(file_path):
                     self.stats["files_skipped"] += 1
+                    self.stats["skipped_not_tracked"] = self.stats.get("skipped_not_tracked", 0) + 1
                     continue
 
                 language = self.get_language(file_path)
@@ -1287,6 +1462,18 @@ class CodeNavigator:
         try:
             with open(existing_map_path, encoding="utf-8") as f:
                 existing_map = json.load(f)
+                # A format-version mismatch means the old index was built by a
+                # different codenav whose membership/semantics may differ (e.g.
+                # the pre-2.2.9 substring ignore bug). Reusing it would carry the
+                # stale rows forward silently — force a full rebuild instead.
+                existing_version = existing_map.get("version")
+                if existing_version != INDEX_FORMAT_VERSION:
+                    print(
+                        f"Index format changed ({existing_version} -> "
+                        f"{INDEX_FORMAT_VERSION}), performing full scan",
+                        file=sys.stderr,
+                    )
+                    return self.scan()
                 # Extract only what we need, let the rest be garbage collected
                 existing_files = existing_map.get("files", {})
                 del existing_map  # Explicit cleanup of the full map
@@ -1297,7 +1484,7 @@ class CodeNavigator:
         print(f"Existing map has {len(existing_files)} files", file=sys.stderr)
 
         # Initialize incremental stats
-        self.stats = {
+        self.stats: dict[str, Any] = {
             "files_processed": 0,
             "files_unchanged": 0,
             "files_added": 0,
@@ -1317,18 +1504,19 @@ class CodeNavigator:
         # Note: Files may be deleted/modified during walk (TOCTOU).
         # We handle this by checking existence and catching exceptions.
         for root, dirs, files in os.walk(self.root_path):
-            dirs[:] = [d for d in dirs if not self.should_ignore(Path(root) / d)]
+            self._load_nested_gitignore(Path(root))
+            dirs[:] = [d for d in dirs if not self.should_ignore(Path(root) / d, is_dir=True)]
 
             for file in files:
                 file_path = Path(root) / file
-                if self.should_ignore(file_path):
-                    self.stats["files_skipped"] += 1
+                if self.should_ignore(file_path, is_dir=False):
+                    self._record_skip(file_path)
                     continue
 
                 # Skip symlinks to prevent symlink attacks
                 try:
                     if file_path.is_symlink():
-                        self.stats["files_skipped"] += 1
+                        self._record_skip(file_path, "symlink")
                         continue
                 except OSError:
                     continue
@@ -1567,7 +1755,7 @@ class CodeNavigator:
             )
 
         return {
-            "version": "1.0",
+            "version": INDEX_FORMAT_VERSION,
             "root": str(self.root_path),
             "generated_at": datetime.now().isoformat(),
             "stats": self.stats,
@@ -1682,6 +1870,17 @@ def run_map(args: argparse.Namespace) -> None:
         print(json.dumps(summary, separators=(",", ":")))
     else:
         print(json.dumps(summary, indent=2))
+
+    # A violated coverage invariant is a hard failure: the index is unsafe to
+    # trust (a whole language extracted nothing), so exit non-zero rather than
+    # letting a broken index look successful.
+    if stats.get("coverage_gaps"):
+        print(
+            f"{c.error('✗')} Coverage invariant violated for: "
+            f"{', '.join(stats['coverage_gaps'])}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
 
 def main():
