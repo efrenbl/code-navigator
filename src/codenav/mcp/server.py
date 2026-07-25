@@ -47,12 +47,13 @@ You have access to Code Navigator, an MCP server that helps you explore codebase
 ## Recommended Workflow
 
 1. **Scan first** (`codenav_scan`): Generate a code map for the project. This creates `.codenav.json` which indexes all symbols.
-2. **Search by symbol** (`codenav_search`): Find functions, classes, methods by name or pattern. Returns file:line locations.
-3. **Read surgically** (`codenav_read`): Load only the specific lines you need, not entire files.
+2. **Look up in one call** (`codenav_lookup`): To answer "where is X and what does it do", this returns the matching symbols' bodies AND their callers in a single call — treat the returned source as already read. This is the primary tool; prefer it over search+read.
+3. **Read wider only if needed** (`codenav_read`): When one match needs a larger window than the lookup budget printed.
 
 ## Token-Efficiency Best Practices
 
-- **Never read entire files** - Use `codenav_search` to find exact line ranges, then `codenav_read` with those ranges.
+- **Prefer `codenav_lookup`** - one call returns the symbol body plus who calls it; no separate search+read round-trips.
+- **Never read entire files** - Use `codenav_lookup` (or `codenav_search` for locations only), then `codenav_read` for a wider range.
 - **Use `codenav_get_structure`** before reading a file to see what symbols it contains.
 - **Check `codenav_stats`** to understand codebase size before diving in.
 - **Use `codenav_get_hubs`** to identify the most important files to review first.
@@ -66,8 +67,9 @@ If you call search/stats/hubs/structure/dependencies without first scanning, and
 | Tool | Purpose | When to Use |
 |------|---------|-------------|
 | `codenav_scan` | Index codebase | First step for any new project |
-| `codenav_search` | Find symbols | Looking for specific function/class |
-| `codenav_read` | Read lines | After finding symbol location |
+| `codenav_lookup` | Locate + body + callers | Answering "where is X / what does it do / who calls it" in one call |
+| `codenav_search` | Find symbols (locations only) | When you want locations without bodies |
+| `codenav_read` | Read lines | Widening one match beyond the lookup budget |
 | `codenav_stats` | Codebase overview | Understanding project size |
 | `codenav_get_hubs` | Find central files | Architecture analysis |
 | `codenav_get_structure` | File outline | Before reading a file |
@@ -197,6 +199,22 @@ class CodenavToolHandler:
         return "\nNOTE — the index is partial, so 'not found' may mean 'not indexed': " + "; ".join(
             bits
         )
+
+    def _lookup_budget(self, file_count: int) -> dict:
+        """Per-call output budget for ``codenav_lookup``, scaled to repo size.
+
+        Bodies are clipped to ``chars_per_symbol`` so one lookup stays cheap.
+        ``chars_per_symbol`` is monotonic in repo size (a bigger repo never gets
+        a smaller per-symbol window than a smaller one) — the regression that
+        motivates this is an over-tight cap forcing the agent back to raw reads.
+        """
+        if file_count < 150:
+            return {"max_results": 3, "chars_per_symbol": 1600}
+        if file_count < 1000:
+            return {"max_results": 4, "chars_per_symbol": 1800}
+        if file_count < 5000:
+            return {"max_results": 5, "chars_per_symbol": 2000}
+        return {"max_results": 6, "chars_per_symbol": 2400}
 
     def _is_file_on_disk_not_indexed(self, path: str, rel_file: str) -> bool:
         """True when a file exists on disk but is absent from the code map."""
@@ -419,6 +437,108 @@ def codenav_read(
 
     except Exception as e:
         logger.exception(f"Error reading {file_path}")
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def codenav_lookup(
+    query: str,
+    symbol_type: str = "any",
+    path: str | None = None,
+    max_results: int = 0,
+) -> str:
+    """Locate a symbol AND return its body in ONE call — the primary lookup tool.
+
+    Fuses search + get_structure + read: instead of three round-trips to answer
+    "where is X and what does it do", this returns the top matches' source
+    (clipped to a per-repo budget) plus, for each, the symbols that call it
+    ("who calls X" — the relation a plain grep cannot resolve). Treat the
+    returned source as already read; if you need a wider window on one match,
+    call codenav_read with the printed range. Reach for codenav_search only
+    when you want locations without bodies.
+
+    Token budget: at most ~2.4k characters of source per match and a
+    repo-size-scaled number of matches (3 on small repos, up to 6 on very large
+    ones), so a lookup is bounded regardless of how large the matched functions
+    are.
+
+    Args:
+        query: Symbol name or pattern to locate.
+        symbol_type: Filter: 'function', 'class', 'method', 'variable', or 'any'.
+        path: Root directory (uses current dir if not specified).
+        max_results: Override the repo-scaled number of bodies to return (0 = auto).
+
+    Returns:
+        For each match: a header (file:lines [type] name), its callers, and the
+        clipped source body.
+    """
+    handler = get_handler()
+    search_path = os.path.abspath(path or handler.workspace_root)
+
+    exists, error_msg = handler._check_map_exists(search_path)
+    if not exists:
+        return error_msg
+
+    try:
+        map_path = handler._get_map_path(search_path)
+        searcher = CodeSearcher(str(map_path))
+        if symbol_type == "any":
+            results = searcher.search_symbol(query, limit=20)
+        else:
+            results = searcher.search_symbol(query, symbol_type=symbol_type, limit=20)
+
+        if not results:
+            return "No matching symbols found." + handler._index_health_note(search_path)
+
+        file_count = len(searcher.code_map.get("files", {}))
+        budget = handler._lookup_budget(file_count)
+        n = max_results if max_results > 0 else budget["max_results"]
+        reader = LineReader(root_path=search_path)
+
+        blocks = []
+        for r in results[:n]:
+            end = r.lines[1] if len(r.lines) > 1 else r.lines[0]
+            header = f"### {r.file}:L{r.lines[0]}-{end} [{r.type}] {r.name}"
+            if r.parent:
+                header += f" (in {r.parent})"
+
+            callers = searcher.find_callers(r.name)
+            if callers:
+                preview = ", ".join(f"{c['name']} ({c['file']})" for c in callers[:5])
+                more = f" +{len(callers) - 5}" if len(callers) > 5 else ""
+                header += f"\n  called by ({len(callers)}): {preview}{more}"
+
+            body_lines: list[str] = []
+            try:
+                body = reader.read_lines(r.file, r.lines[0], end)
+                rendered = body.get("lines", []) if isinstance(body, dict) else []
+            except Exception:
+                rendered = []
+            chars = 0
+            for i, ln in enumerate(rendered):
+                line_str = f"{ln['num']:>5}  {ln['content']}"
+                chars += len(line_str) + 1
+                if chars > budget["chars_per_symbol"] and body_lines:
+                    remaining = len(rendered) - i
+                    body_lines.append(
+                        f"      … (+{remaining} more lines; "
+                        f"codenav_read file_path={r.file} start_line={r.lines[0]} end_line={end})"
+                    )
+                    break
+                body_lines.append(line_str)
+
+            blocks.append(header + "\n" + "\n".join(body_lines))
+
+        note = ""
+        if len(results) > n:
+            note = (
+                f"\n\n(+{len(results) - n} more matches not shown — narrow with "
+                "symbol_type= or a more specific query)"
+            )
+        return "\n\n".join(blocks) + note
+
+    except Exception as e:
+        logger.exception(f"Error looking up {query}")
         return f"Error: {e}"
 
 

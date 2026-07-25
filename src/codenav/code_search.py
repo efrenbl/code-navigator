@@ -123,6 +123,30 @@ class CodeSearcher:
         """
         self.map_path = map_path
         self.code_map = self._load_map()
+        self._callers_index: dict[str, list[dict]] | None = None
+
+    def find_callers(self, name: str) -> list[dict]:
+        """Symbols that reference ``name`` — the reverse of the dependency edges.
+
+        "Who calls X" is the relation query a plain ``grep`` cannot answer
+        (it finds text, not resolved call sites), and it is what justifies an
+        index over ripgrep. Built once from the forward ``deps`` already in the
+        map and cached. Each caller is ``{file, name, type, lines}``.
+        """
+        if self._callers_index is None:
+            index: dict[str, list[dict]] = {}
+            for fpath, info in self.code_map.get("files", {}).items():
+                for sym in info.get("symbols", []):
+                    caller = {
+                        "file": fpath,
+                        "name": sym.get("name"),
+                        "type": sym.get("type"),
+                        "lines": sym.get("lines"),
+                    }
+                    for dep in sym.get("deps") or []:
+                        index.setdefault(dep, []).append(caller)
+            self._callers_index = index
+        return self._callers_index.get(name, [])
 
     def _load_map(self) -> dict:
         """Load the code map from file.
