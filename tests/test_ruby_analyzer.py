@@ -291,3 +291,80 @@ class TestRubyEnrichment:
         symbols = self._analyze("module Outer\n  class Inner\n  end\nend\n")
         inner = next(s for s in symbols if s.name == "Inner")
         assert inner.parent == "Outer"
+
+
+@pytest.mark.skipif(not TREE_SITTER_AVAILABLE, reason="tree-sitter not available")
+class TestRailsMetaprogramming:
+    """Rails class-body macros generate invocable methods a static parser must see."""
+
+    def _analyze(self, source):
+        return RubyAnalyzer("model.rb", source).analyze()
+
+    def test_associations(self):
+        symbols = self._analyze(
+            "class User < ApplicationRecord\n"
+            "  belongs_to :account\n"
+            "  has_many :posts, dependent: :destroy\n"
+            "  has_one :profile\n"
+            "  has_and_belongs_to_many :roles\n"
+            "end\n"
+        )
+        by_name = {s.name: s for s in symbols}
+        for assoc in ("account", "posts", "profile", "roles"):
+            assert assoc in by_name, assoc
+            assert by_name[assoc].parent == "User"
+            assert by_name[assoc].modifiers[0].startswith("association:")
+
+    def test_attr_accessors_each_name(self):
+        symbols = self._analyze(
+            "class User\n  attr_accessor :token, :count\n  attr_reader :id\nend\n"
+        )
+        names = {s.name for s in symbols if s.modifiers == ["attr"]}
+        assert names == {"token", "count", "id"}
+
+    def test_scopes(self):
+        symbols = self._analyze(
+            "class User < Base\n"
+            "  scope :active, -> { where(active: true) }\n"
+            "  scope :recent, ->(n) { limit(n) }\n"
+            "end\n"
+        )
+        scopes = {s.name for s in symbols if s.modifiers == ["scope"]}
+        assert scopes == {"active", "recent"}
+
+    def test_delegate_with_and_without_prefix(self):
+        symbols = self._analyze(
+            "class User\n"
+            "  delegate :name, :email, to: :profile, prefix: true\n"
+            "  delegate :city, to: :address\n"
+            "end\n"
+        )
+        delegated = {s.name for s in symbols if s.modifiers == ["delegated"]}
+        assert delegated == {"profile_name", "profile_email", "city"}
+
+    def test_define_method_symbol_literal(self):
+        symbols = self._analyze("class C\n  define_method(:dynamic) { 1 }\nend\n")
+        assert any(s.name == "dynamic" and s.modifiers == ["dynamic"] for s in symbols)
+
+    def test_validates_is_not_a_symbol(self):
+        # validates declares behavior but no invocable method named after the field.
+        symbols = self._analyze("class C\n  validates :email, presence: true\nend\n")
+        assert not any(s.name == "email" for s in symbols)
+
+    def test_macros_do_not_break_dsl_wrapped_classes(self):
+        symbols = self._analyze(
+            "namespace :admin do\n  class Dashboard\n    def show; end\n  end\nend\n"
+        )
+        assert any(s.type == "class" and s.name == "Dashboard" for s in symbols)
+        assert any(s.name == "show" for s in symbols)
+
+    def test_macros_coexist_with_mixins_and_requires(self):
+        analyzer = RubyAnalyzer(
+            "m.rb",
+            'require "json"\nclass Foo\n  include Comparable\n  belongs_to :bar\nend\n',
+        )
+        symbols = analyzer.analyze()
+        assert analyzer.imports == ["json"]
+        foo = next(s for s in symbols if s.name == "Foo")
+        assert foo.mixins == ["Comparable"]
+        assert any(s.name == "bar" for s in symbols)
