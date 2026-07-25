@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-07-25
+
+### Added
+- **Ruby/Rails metaprogramming extraction.** A static parser that only sees
+  `def` captures ~1 of 13 invocable methods on a typical ActiveRecord model —
+  the associations, accessors, delegations and scopes are generated at load
+  time by class-body macros. The Ruby analyzer now extracts them:
+  `belongs_to`/`has_one`/`has_many`/`has_and_belongs_to_many` → the association
+  method; `attr_accessor`/`reader`/`writer` → each attribute; `delegate` → each
+  target (honoring `prefix: true`/`:sym`); `scope` → the scope; `define_method`
+  with a symbol literal → the method. Each is parented to its class and tagged
+  with a `modifiers` marker (`association:<kind>`, `attr`, `delegated`, `scope`,
+  `dynamic`). Measured 1/13 → 12/13 invocable on a model; `validates` is
+  intentionally not emitted; `method_missing` stays a plain def with its dynamic
+  targets not invented.
+- **`codenav_lookup` MCP tool.** Fuses locate + body + callers into one call:
+  returns the top matches' source (clipped to a repo-size-scaled, monotonic
+  per-symbol budget) plus, for each, the symbols that call it. Promoted as the
+  primary lookup path in the server instructions to cut the
+  search→structure→read round-trips.
+- **Reverse caller index.** `CodeSearcher.find_callers(name)` answers "who calls
+  X" — the reverse of the dependency edges, the relation a plain `grep` cannot
+  resolve — built once from the map and cached.
+- **A/B evaluation harness** (`scripts/agent-eval/`): `run-ab.sh` isolates arms
+  by `--mcp-config` only; `parse-run.mjs` reads every metric from the
+  stream-json trace; `TASKS.md` pre-registers tasks + rubrics; `setup-corpus.sh`
+  clones and indexes the public corpora. Plus `docs/competitive-and-regimen.md`
+  with measured per-language coverage and the usage régimen.
+
 ## [2.3.0] - 2026-07-25
 
 ### Added

@@ -166,10 +166,106 @@ def _extract_require(node: Node, ctx: TreeSitterExtractor) -> list[str]:
     return []
 
 
+# Rails/Ruby class-body macros that declare invocable surface. A static parser
+# that only sees ``def`` misses almost all of a typical ActiveRecord model — the
+# associations, accessors, delegations and scopes are generated at load time by
+# these macro calls. Extracting them is the single biggest coverage win in Ruby.
+_ASSOCIATION_MACROS = frozenset({"belongs_to", "has_one", "has_many", "has_and_belongs_to_many"})
+_ATTR_MACROS = frozenset({"attr_accessor", "attr_reader", "attr_writer"})
+
+
+def _symbol_arg_text(node: Node, ctx: TreeSitterExtractor) -> str | None:
+    """A ``:name`` argument's bare name, or None if it isn't a simple symbol."""
+    if node.type == "simple_symbol":
+        return ctx.text(node).lstrip(":")
+    if node.type == "string":
+        content = ctx.child_by_type(node, "string_content")
+        return ctx.text(content) if content is not None else None
+    return None
+
+
+def _macro_args(node: Node, ctx: TreeSitterExtractor):
+    """Split a macro call's arguments into leading names and keyword pairs."""
+    args = node.child_by_field_name("arguments") or ctx.child_by_type(node, "argument_list")
+    names: list[str] = []
+    pairs: dict[str, str] = {}
+    if args is None:
+        return names, pairs
+    for child in args.children:
+        if child.type == "pair":
+            kids = [c for c in child.children if c.type not in (":", ",")]
+            if len(kids) >= 2:
+                key = ctx.text(kids[0]).rstrip(":").strip()
+                pairs[key] = _symbol_arg_text(kids[1], ctx) or ctx.text(kids[1]).strip()
+        elif not pairs:
+            name = _symbol_arg_text(child, ctx)
+            if name:
+                names.append(name)
+    return names, pairs
+
+
+def _extract_class_macro(node: Node, ctx: TreeSitterExtractor) -> bool:
+    """Emit the invocable methods a Rails/Ruby class-body macro generates.
+
+    Runs on every class/module-body call (method bodies are never descended
+    into, so this never fires on an ordinary in-method call). Non-macro calls
+    fall through emitting nothing; children are still visited so DSL blocks that
+    wrap real classes/modules keep working.
+    """
+    method_node = node.child_by_field_name("method")
+    if method_node is None or ctx.parent is None:
+        return True  # handled: suppress the generic emit, keep traversing children
+    macro = ctx.text(method_node)
+    signature = ctx.text(node).split("\n", 1)[0].strip()
+
+    def emit(name: str, modifier: str) -> None:
+        ctx.emit(
+            name=name,
+            kind="method",
+            node=node,
+            signature=signature,
+            parent=ctx.parent,
+            modifiers=[modifier],
+        )
+
+    if macro in _ASSOCIATION_MACROS:
+        names, _ = _macro_args(node, ctx)
+        if names:
+            emit(names[0], f"association:{macro}")
+    elif macro in _ATTR_MACROS:
+        names, _ = _macro_args(node, ctx)
+        for name in names:
+            emit(name, "attr")
+    elif macro == "scope":
+        names, _ = _macro_args(node, ctx)
+        if names:
+            emit(names[0], "scope")
+    elif macro == "delegate":
+        names, pairs = _macro_args(node, ctx)
+        prefix = ""
+        raw_prefix = pairs.get("prefix")
+        if raw_prefix == "true":
+            prefix = f"{pairs.get('to', '')}_"
+        elif raw_prefix:
+            prefix = f"{raw_prefix}_"
+        for name in names:
+            emit(f"{prefix}{name}", "delegated")
+    elif macro == "define_method":
+        names, _ = _macro_args(node, ctx)
+        if names:
+            emit(names[0], "dynamic")
+    # method_missing needs no handling here: it is a plain `def`, already
+    # captured, and its dynamic targets are deliberately not invented.
+    return True
+
+
 SPEC = LanguageSpec(
     language="ruby",
     grammar="ruby",
     rules={
+        "call": SymbolRule(kind="method", handler=_extract_class_macro),
+        "command": SymbolRule(kind="method", handler=_extract_class_macro),
+        "method_call": SymbolRule(kind="method", handler=_extract_class_macro),
         "method": SymbolRule(
             kind="method",
             name_child_types=("identifier",),
