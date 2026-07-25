@@ -1,3 +1,5 @@
+> **SUPERSEDED (v2.3.0):** el registry de languages/ usa tree-sitter-language-pack con la API estándar; el adaptador _Node fue eliminado y este plan ya no es necesario.
+
 # Plan: publicar un `tree-sitter-dart` propio (wheels precompilados)
 
 ## Objetivo

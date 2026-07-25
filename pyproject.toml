@@ -64,24 +64,18 @@ dev = [
     "mcp>=1.28.1",
 ]
 ast = [
-    "tree-sitter>=0.23.0; python_version>='3.9'",
-    "tree-sitter-javascript>=0.23.0; python_version>='3.9'",
-    "tree-sitter-typescript>=0.23.0; python_version>='3.9'",
-    "tree-sitter-ruby>=0.23.0; python_version>='3.9'",
-    "tree-sitter-go>=0.23.0; python_version>='3.9'",
-    "tree-sitter-rust>=0.23.0; python_version>='3.9'",
+    # One dependency, 160+ pre-compiled grammars (incl. JS/TS, Ruby, Go,
+    # Rust, Dart, Java, Kotlin, Swift, C#, C, C++, PHP). Installations that
+    # predate the pack keep working: the grammar registry also resolves the
+    # old individual tree-sitter-<lang> wheels.
+    "tree-sitter>=0.23.0",
+    "tree-sitter-language-pack>=1.10.0",
 ]
 dart = [
-    # Dart/Flutter grammar ships pre-compiled via tree-sitter-dart, which
-    # provides wheels for Linux/macOS/Windows (no C compiler or manual build
-    # step). Without it, Dart falls back to the regex analyzer. Flutter needs
-    # no separate grammar — Flutter widgets are ordinary Dart classes.
-    # tree-sitter-dart declares the `tree-sitter` runtime binding only as an
-    # optional `core` extra, so we pin it here too — otherwise `[dart]` alone
-    # installs the grammar but not the binding, and the AST path silently
-    # degrades to regex (TREE_SITTER_AVAILABLE stays False).
-    "tree-sitter>=0.23.0; python_version>='3.9'",
-    "tree-sitter-dart>=0.1.0; python_version>='3.9'",
+    # Deprecated alias of [ast]: the language pack already bundles the Dart
+    # grammar. Kept so existing `codenav[dart]` installs keep working.
+    "tree-sitter>=0.23.0",
+    "tree-sitter-language-pack>=1.10.0",
 ]
 graph = [
     "networkx>=3.0",
@@ -96,12 +90,7 @@ fast = [
 all = [
     "mcp>=1.28.1",
     "tree-sitter>=0.23.0",
-    "tree-sitter-javascript>=0.23.0",
-    "tree-sitter-typescript>=0.23.0",
-    "tree-sitter-ruby>=0.23.0",
-    "tree-sitter-go>=0.23.0",
-    "tree-sitter-rust>=0.23.0",
-    "tree-sitter-dart>=0.1.0",
+    "tree-sitter-language-pack>=1.10.0",
     "networkx>=3.0",
     "scipy>=1.10",
     "numpy>=1.23",

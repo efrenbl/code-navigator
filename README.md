@@ -263,29 +263,44 @@ If you have multiple Python installations:
 
 ## Supported Languages
 
-| Language | Analysis Type | Quality |
-|----------|---------------|---------|
-| Python | Full AST (stdlib) | ⭐⭐⭐⭐⭐ |
-| JavaScript | AST (tree-sitter)* | ⭐⭐⭐⭐⭐ |
-| TypeScript | AST (tree-sitter)* | ⭐⭐⭐⭐⭐ |
-| Ruby | AST (tree-sitter)* | ⭐⭐⭐⭐ |
-| Go | AST (tree-sitter)* | ⭐⭐⭐⭐ |
-| Rust | AST (tree-sitter)* | ⭐⭐⭐⭐ |
-| Dart / Flutter | AST (tree-sitter, opt-in)** | ⭐⭐⭐⭐ |
-| Java | Regex, or AST (ast-grep)† | ⭐⭐⭐ → ⭐⭐⭐⭐ |
-| C/C++ | Regex, or AST (ast-grep)† | ⭐⭐⭐ → ⭐⭐⭐⭐ |
-| PHP | Regex, or AST (ast-grep)† | ⭐⭐⭐ → ⭐⭐⭐⭐ |
+| Language | Analysis Type | Symbols | Parents | Doc comments | Calls (deps) | Imports | Quality |
+|----------|---------------|:------:|:-------:|:------------:|:------------:|:-------:|---------|
+| Python | Full AST (stdlib) | ✅ (+enums, constants, nested fns) | ✅ | ✅ docstrings | ✅ | ✅ resolved | ⭐⭐⭐⭐⭐ |
+| JavaScript | AST (tree-sitter)* | ✅ | ✅ | — | ✅ | ✅ resolved | ⭐⭐⭐⭐⭐ |
+| TypeScript | AST (tree-sitter)* | ✅ (+interfaces, enums, types) | ✅ | — | ✅ | ✅ resolved | ⭐⭐⭐⭐⭐ |
+| Ruby | AST (tree-sitter)* | ✅ | ✅ | ✅ `#` | ✅ | ✅ `require` | ⭐⭐⭐⭐⭐ |
+| Go | AST (tree-sitter)* | ✅ (+structs, interfaces) | ✅ | ✅ `//` | ✅ | ✅ resolved | ⭐⭐⭐⭐⭐ |
+| Rust | AST (tree-sitter)* | ✅ (+structs, traits, enums) | ✅ | ✅ `///` | ✅ (+macros) | ✅ `use` | ⭐⭐⭐⭐⭐ |
+| Dart / Flutter | AST (tree-sitter)* | ✅ (+mixins, extensions) | ✅ | ✅ `///` | ✅ | ✅ resolved | ⭐⭐⭐⭐⭐ |
+| Java | AST (tree-sitter)*† | ✅ (+records, annotations) | ✅ | ✅ Javadoc | ✅ | ✅ | ⭐⭐⭐⭐⭐ |
+| Kotlin | AST (tree-sitter)* | ✅ (+objects, data classes) | ✅ | ✅ KDoc | ✅ | ✅ | ⭐⭐⭐⭐⭐ |
+| Swift | AST (tree-sitter)* | ✅ (+protocols, extensions) | ✅ | ✅ `///` | ✅ | ✅ | ⭐⭐⭐⭐⭐ |
+| C# | AST (tree-sitter)* | ✅ (+records, delegates) | ✅ | ✅ `///` | ✅ | ✅ `using` | ⭐⭐⭐⭐⭐ |
+| C | AST (tree-sitter)*† | ✅ (+prototypes, typedefs) | — | ✅ | ✅ | ✅ includes | ⭐⭐⭐⭐⭐ |
+| C++ | AST (tree-sitter)*† | ✅ (+out-of-line members) | ✅ | ✅ | ✅ | ✅ includes | ⭐⭐⭐⭐⭐ |
+| PHP | AST (tree-sitter)*† | ✅ (+traits, enums) | ✅ | ✅ docblocks | ✅ | ✅ `use`/require | ⭐⭐⭐⭐⭐ |
 
 *Install tree-sitter support: `pip install "codenav[ast] @ git+https://github.com/efrenbl/code-navigator.git"`
 All tree-sitter analyzers fall back to regex when tree-sitter is not installed.
 
-**Dart works out-of-the-box via regex. AST analysis ships pre-compiled via
-`pip install "codenav[dart] @ git+https://github.com/efrenbl/code-navigator.git"` — see [Dart/Flutter setup](#dartflutter-setup) below.
+†Java/C/C++/PHP keep [ast-grep](https://ast-grep.github.io/) as an intermediate
+fallback: with the `[fast]` extra installed but no tree-sitter grammar, they
+get a real AST parse (symbols + parents) before degrading to regex.
 
-†The languages without a dedicated grammar (Java, C, C++, PHP) are upgraded
-from regex to a real AST parse — with method→class parent linkage — when the
-optional ast-grep engine is installed: `pip install "codenav[fast] @ git+https://github.com/efrenbl/code-navigator.git"`. Without it
-they use the regex analyzer.
+Every tree-sitter language extracts symbols with parent context, cross-file
+call dependencies (`deps`), and import specifiers resolved to internal repo
+files (the per-file `imports` key in the map). All except JS/TS also capture
+leading doc comments. Each symbol records which engine produced it
+(`"source": "ast" | "ast-grep" | "regex"`).
+
+**AST grammars ship through `tree-sitter-language-pack`** (installed by the
+`[ast]` extra): one dependency with 160+ pre-compiled grammars for
+Linux/macOS/Windows — no C compiler needed. Installations that predate the
+pack keep working: the grammar registry also resolves the old individual
+`tree-sitter-<lang>` wheels. `[dart]` remains as a deprecated alias of
+`[ast]`. Without any grammar installed, every language falls back to the
+regex analyzer. Flutter needs no separate grammar; widgets are ordinary
+Dart classes.
 
 ### Mapping coverage
 
@@ -307,19 +322,18 @@ being truncated.
 
 Dart files are analyzed via regex out-of-the-box (classes, mixins, enums,
 extensions, top-level functions). To enable AST-level analysis (parented
-methods, constructors, accurate signatures), install the optional grammar:
+methods, constructors, accurate signatures), install the tree-sitter extra:
 
 ```bash
-pip install "codenav[dart] @ git+https://github.com/efrenbl/code-navigator.git"
+pip install "codenav[ast] @ git+https://github.com/efrenbl/code-navigator.git"
 ```
 
-The Dart grammar ships via
-[`tree-sitter-dart`](https://pypi.org/project/tree-sitter-dart/), which provides
-pre-compiled wheels for Linux, macOS and Windows — no C compiler or manual build
-step required. It loads through the standard tree-sitter interface, exactly like
-the other languages. Flutter needs no separate grammar: Flutter widgets are
-ordinary Dart classes. `[dart]` is its own extra so it can evolve independently;
-if it is not installed, codenav transparently falls back to the regex analyzer.
+The Dart grammar ships pre-compiled inside `tree-sitter-language-pack` — no C
+compiler or manual build step required — and loads through the standard
+tree-sitter interface, exactly like the other languages. Flutter needs no
+separate grammar: Flutter widgets are ordinary Dart classes. `[dart]` is kept
+as a deprecated alias of `[ast]`; if no grammar is installed, codenav
+transparently falls back to the regex analyzer.
 
 ---
 

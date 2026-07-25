@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-07-25
+
+### Added
+- **Arquitectura LanguageSpec portada desde codegraph-nav** (`src/codenav/languages/`):
+  specs declarativas por lenguaje consumidas por un único `TreeSitterExtractor`,
+  con registry central de gramáticas (tree-sitter-language-pack → wheels
+  individuales → fallback regex). Los analyzers de go/ruby/dart/rust/js-ts
+  quedan como shims de compatibilidad (~30 líneas) sobre sus specs.
+- **7 lenguajes nuevos de primera clase**: Java, Kotlin, Swift, C#, C, C++ y PHP
+  pasan de regex/ast-grep a extracción AST con tree-sitter (símbolos con parent,
+  doc comments, deps e imports). Java/C/C++/PHP conservan ast-grep (`[fast]`)
+  como fallback intermedio antes del regex. `LANGUAGE_EXTENSIONS` añade
+  `.kt/.kts`, `.swift` y `.cs`.
+- **Enrichment de símbolos**: campos nuevos `visibility` (Go exportado/no,
+  modificadores Ruby, `_` de Dart), `modifiers` (`static`, `async`, `abstract`,
+  `factory`, `getter`, `setter`…), `mixins` (include/extend/prepend de Ruby) y
+  `return_type` normalizado. Se emiten en el mapa solo cuando tienen valor y
+  hacen round-trip en scans incrementales.
+- **Imports por archivo**: cada analyzer captura sus especificadores de import
+  y `generate_map` los resuelve (ImportResolver con aliases de
+  tsconfig/pyproject) a rutas internas del repo bajo la clave `imports` de cada
+  archivo. Doc comments para Go/Ruby/Dart (antes ausentes) vía
+  `collect_doc_comment`.
+- **`Symbol.source`**: procedencia del engine por símbolo
+  (`"ast" | "ast-grep" | "regex"`); los mapas antiguos sin la clave siguen
+  cargando.
+- **Parity del analyzer Python**: subclases de Enum tipadas como `enum`,
+  constantes UPPER_CASE a nivel de módulo, funciones anidadas con parent de su
+  función contenedora y deps deterministas (ordenadas, sin fugas de defs
+  anidados).
+
+### Changed
+- **`[ast]` ahora instala `tree-sitter-language-pack`** (160+ gramáticas
+  precompiladas, una sola dependencia) en lugar de wheels individuales; el
+  registry sigue resolviendo los wheels `tree-sitter-<lang>` antiguos.
+  `[dart]` queda como alias deprecado de `[ast]`.
+
+### Fixed
+- **Constructores Dart**: los constructores con nombre (`Foo._internal`) se
+  emiten como `constructor` con el nombre del ctor (`_internal`), los factory
+  llevan `modifiers=["factory"]` y getters/setters se distinguen con
+  `modifiers=["getter"|"setter"]` (el adaptador `_Node` fue eliminado).
+- **Receivers genéricos de Go**: `func (s *Stack[T]) Push(...)` vincula el
+  método a su tipo (`parent="Stack"`); los métodos de interfaces Go se extraen
+  con parent de la interfaz.
+
 ## [2.2.8] - 2026-07-23
 
 ### Security
