@@ -22,7 +22,6 @@ Attributes:
 
 import argparse
 import ast
-import fnmatch
 import json
 import os
 import re
@@ -36,6 +35,7 @@ from typing import Any
 
 from ._version import __version__
 from .colors import get_colors
+from .gitignore import GitignoreMatcher
 
 # Supported languages and their extensions
 LANGUAGE_EXTENSIONS = {
@@ -715,6 +715,39 @@ class GitIntegration:
 
         return patterns
 
+    @staticmethod
+    def _read_pattern_file(path: Path) -> list[str]:
+        try:
+            return path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return []
+
+    def get_info_exclude_patterns(self) -> list[str]:
+        """Raw lines of ``.git/info/exclude`` (repo-local, uncommitted ignores)."""
+        return self._read_pattern_file(self.root_path / ".git" / "info" / "exclude")
+
+    def get_core_excludes_patterns(self) -> list[str]:
+        """Raw lines of the user's ``core.excludesFile`` (global gitignore)."""
+        if not self.available:
+            return []
+        try:
+            result = subprocess.run(
+                ["git", "config", "--get", "core.excludesFile"],
+                cwd=self.root_path,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            return []
+        path_str = result.stdout.strip() if result.returncode == 0 else ""
+        if not path_str:
+            default = Path.home() / ".config" / "git" / "ignore"
+            if not default.exists():
+                return []
+            path_str = str(default)
+        return self._read_pattern_file(Path(path_str).expanduser())
+
     def get_files_changed_since(self, commit: str) -> set[str]:
         """Get files that changed since a specific commit.
 
@@ -842,7 +875,8 @@ class CodeNavigator:
         self._git = GitIntegration(self.root_path)
         self._git_tracked_files: set[str] | None = None
 
-        # Add gitignore patterns if requested
+        # Add gitignore patterns if requested. These are kept on ``ignore_patterns``
+        # (a documented attribute) and also feed the semantic matcher below.
         if self.use_gitignore and self._git.available:
             gitignore_patterns = self._git.get_gitignore_patterns()
             self.ignore_patterns.extend(gitignore_patterns)
@@ -851,25 +885,59 @@ class CodeNavigator:
         if self.git_only and self._git.available:
             self._git_tracked_files = self._git.get_tracked_files()
 
-    def should_ignore(self, path: Path) -> bool:
-        """Check if a path should be ignored during scanning.
+        # Real gitignore-semantics matcher (replaces the old substring test).
+        # Codenav defaults + user patterns + root .gitignore live at root scope;
+        # nested .gitignore files are folded in per directory during the walk.
+        self._ignore_matcher = GitignoreMatcher()
+        self._ignore_matcher.add_patterns(self.ignore_patterns, "")
+        self._nested_gitignore_dirs: set[str] = set()
+        if self.use_gitignore and self._git.available:
+            self._ignore_matcher.add_patterns(self._git.get_info_exclude_patterns(), "")
+            self._ignore_matcher.add_patterns(self._git.get_core_excludes_patterns(), "")
+
+    def _load_nested_gitignore(self, dir_abs: Path) -> None:
+        """Fold a directory's ``.gitignore`` into the matcher, scoped to that dir.
+
+        No-op unless ``use_gitignore`` is set. Called top-down during the walk so
+        deeper files, appended later, override shallower ones (last-match-wins).
+        """
+        if not self.use_gitignore:
+            return
+        try:
+            rel = dir_abs.relative_to(self.root_path).as_posix()
+        except ValueError:
+            return
+        if rel in ("", ".") or rel in self._nested_gitignore_dirs:
+            return  # root handled in __init__; each dir folded once
+        gitignore = dir_abs / ".gitignore"
+        if gitignore.is_file():
+            self._nested_gitignore_dirs.add(rel)
+            self._ignore_matcher.add_patterns(GitIntegration._read_pattern_file(gitignore), rel)
+
+    def should_ignore(self, path: Path, is_dir: bool | None = None) -> bool:
+        """Check if a path should be ignored, using real gitignore semantics.
+
+        Matches on path components (never as a substring, the historical bug),
+        with anchoring, ``dir/``, ``**`` and negation handled by
+        :class:`~codenav.gitignore.GitignoreMatcher`.
 
         Args:
-            path: Path to check.
+            path: Path to check (absolute, under the scan root).
+            is_dir: Whether the path is a directory. Inferred from disk when
+                omitted; the walk passes it explicitly to avoid a stat.
 
         Returns:
-            True if the path matches any ignore pattern or is not git-tracked.
+            True if the path matches the ignore rules.
         """
-        path_str = str(path)
-        name = path.name
-
-        for pattern in self.ignore_patterns:
-            if fnmatch.fnmatch(name, pattern):
-                return True
-            if pattern in path_str:
-                return True
-
-        return False
+        try:
+            rel = path.relative_to(self.root_path).as_posix()
+        except ValueError:
+            return False
+        if rel in ("", "."):
+            return False
+        if is_dir is None:
+            is_dir = path.is_dir()
+        return self._ignore_matcher.is_ignored(rel, is_dir)
 
     def _is_git_tracked(self, file_path: Path) -> bool:
         """Check if a file is tracked by git.
@@ -1009,6 +1077,17 @@ class CodeNavigator:
         exts = self.stats["unmapped_extensions"]
         exts[ext] = exts.get(ext, 0) + 1
 
+    def _record_skip(self, file_path: Path, cause: str = "gitignore") -> None:
+        """Record a file skipped by an ignore rule, keyed by distinguishable cause.
+
+        Separating causes is what lets ``errors: 0`` stop coexisting with a fifth
+        of the code silently missing: a reader can tell "ignored on purpose" from
+        "the parser choked" from "no analyzer for this extension".
+        """
+        self.stats["files_skipped"] += 1
+        key = f"skipped_{cause}"
+        self.stats[key] = self.stats.get(key, 0) + 1
+
     def _finalize_coverage(self, mapped_total: int) -> None:
         """Compute derived coverage metrics after a scan completes.
 
@@ -1053,17 +1132,19 @@ class CodeNavigator:
                 timed_out = True
                 print("Warning: scan timed out, returning partial results", file=sys.stderr)
                 break
-            dirs[:] = [d for d in dirs if not self.should_ignore(Path(root) / d)]
+            self._load_nested_gitignore(Path(root))
+            dirs[:] = [d for d in dirs if not self.should_ignore(Path(root) / d, is_dir=True)]
 
             for file in files:
                 file_path = Path(root) / file
-                if self.should_ignore(file_path):
-                    self.stats["files_skipped"] += 1
+                if self.should_ignore(file_path, is_dir=False):
+                    self._record_skip(file_path)
                     continue
 
                 # Skip if not git-tracked (when git_only mode is enabled)
                 if not self._is_git_tracked(file_path):
                     self.stats["files_skipped"] += 1
+                    self.stats["skipped_not_tracked"] = self.stats.get("skipped_not_tracked", 0) + 1
                     continue
 
                 language = self.get_language(file_path)
@@ -1148,18 +1229,19 @@ class CodeNavigator:
         # Note: Files may be deleted/modified during walk (TOCTOU).
         # We handle this by checking existence and catching exceptions.
         for root, dirs, files in os.walk(self.root_path):
-            dirs[:] = [d for d in dirs if not self.should_ignore(Path(root) / d)]
+            self._load_nested_gitignore(Path(root))
+            dirs[:] = [d for d in dirs if not self.should_ignore(Path(root) / d, is_dir=True)]
 
             for file in files:
                 file_path = Path(root) / file
-                if self.should_ignore(file_path):
-                    self.stats["files_skipped"] += 1
+                if self.should_ignore(file_path, is_dir=False):
+                    self._record_skip(file_path)
                     continue
 
                 # Skip symlinks to prevent symlink attacks
                 try:
                     if file_path.is_symlink():
-                        self.stats["files_skipped"] += 1
+                        self._record_skip(file_path, "symlink")
                         continue
                 except OSError:
                     continue
