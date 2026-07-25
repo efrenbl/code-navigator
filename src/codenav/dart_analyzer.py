@@ -1,301 +1,34 @@
-"""Dart/Flutter analyzer using tree-sitter for AST-based symbol extraction.
+"""Dart/Flutter analyzer — thin shim over the spec-driven extractor.
 
-Falls back to regex-based GenericAnalyzer when the tree-sitter Dart grammar is
-not installed.
+Deprecated import path kept for backward compatibility: the extraction logic
+now lives in :mod:`codenav.languages.dart` (declarative spec) and
+:class:`codenav.languages.extractor.TreeSitterExtractor`.
 
-The Dart grammar ships via ``tree-sitter-dart``, a pip-installable package that
-provides pre-compiled grammar wheels for Linux, macOS and Windows — no C
-compiler and no manual build step required. It exposes the standard
-``py-tree-sitter`` interface (``Language(tree_sitter_dart.language())``), so this
-analyzer loads and traverses the AST exactly like the Go/JS/TS/Ruby/Rust
-analyzers (``.type``, ``.children``, ``.start_point``). Flutter needs no separate
-grammar: Flutter widgets are ordinary Dart classes covered by this same grammar.
+Falls back to regex-based GenericAnalyzer when no Dart grammar is installed.
+Flutter needs no separate grammar: Flutter widgets are ordinary Dart classes.
 
 Example:
     >>> from codenav.dart_analyzer import DartAnalyzer
-    >>> source = '''
-    ... class MyWidget extends StatelessWidget {
-    ...   Widget build(BuildContext context) {
-    ...     return Container();
-    ...   }
-    ... }
-    ... '''
-    >>> analyzer = DartAnalyzer('my_widget.dart', source)
+    >>> analyzer = DartAnalyzer('main.dart', 'class MyWidget {}')
     >>> symbols = analyzer.analyze()
-    >>> print(symbols[0].name)
-    MyWidget
+
+Installation:
+    To enable AST support, install with the 'ast' or 'dart' extra:
+        pip install codenav[dart]
 """
 
-import sys
-from typing import TYPE_CHECKING
+from .languages import registry
+from .languages.dart import SPEC as _DART_SPEC
+from .languages.extractor import TreeSitterExtractor
 
-from .call_extraction import collect_dart_calls
-from .code_navigator import GenericAnalyzer, Symbol
+TREE_SITTER_AVAILABLE = registry.is_available("dart")
 
-if TYPE_CHECKING:
-    from tree_sitter import Node
-
-try:
-    import tree_sitter_dart
-    from tree_sitter import Language, Parser
-
-    _DART_LANGUAGE = Language(tree_sitter_dart.language())
-    TREE_SITTER_AVAILABLE = True
-except ImportError:
-    _DART_LANGUAGE = None
-    TREE_SITTER_AVAILABLE = False
+# Loaded Language object, kept under its historical name for direct-parse users.
+_DART_LANGUAGE = registry.get_language("dart")
 
 
-class DartAnalyzer:
-    """Analyzes Dart/Flutter files using tree-sitter for accurate symbol extraction.
-
-    When the tree-sitter Dart grammar is unavailable, automatically falls back
-    to regex-based GenericAnalyzer.
-
-    Attributes:
-        file_path: Path to the file being analyzed.
-        source: Source code content.
-        symbols: Extracted symbols.
-    """
+class DartAnalyzer(TreeSitterExtractor):
+    """Analyzes Dart/Flutter files using tree-sitter for accurate symbol extraction."""
 
     def __init__(self, file_path: str, source: str):
-        self.file_path = file_path
-        self.source = source
-        # tree-sitter offsets are UTF-8 byte offsets — slice an encoded view.
-        self.source_bytes = source.encode("utf-8")
-        self.lines = source.split("\n")
-        self.symbols: list[Symbol] = []
-        self._current_class: str | None = None
-
-    def analyze(self) -> list[Symbol]:
-        """Parse and analyze the file.
-
-        Returns:
-            List of Symbol objects found in the file.
-        """
-        if not TREE_SITTER_AVAILABLE:
-            return GenericAnalyzer(self.file_path, self.source, "dart").analyze()
-
-        try:
-            parser = Parser(_DART_LANGUAGE)
-            tree = parser.parse(bytes(self.source, "utf-8"))
-            self._visit_node(tree.root_node)
-        except Exception as e:
-            print(f"tree-sitter error in {self.file_path}: {e}", file=sys.stderr)
-            return GenericAnalyzer(self.file_path, self.source, "dart").analyze()
-
-        return self.symbols
-
-    def _visit_node(self, node: "Node") -> None:
-        """Recursively visit AST nodes and extract symbols."""
-        nt = node.type
-
-        if nt == "class_definition":
-            self._extract_class(node)
-            return
-        elif nt == "mixin_declaration":
-            self._extract_mixin(node)
-            return
-        elif nt == "enum_declaration":
-            self._extract_enum(node)
-        elif nt == "extension_declaration":
-            self._extract_extension(node)
-            return
-        elif nt == "function_signature":
-            if self._current_class is None:
-                self._extract_function(node)
-        elif nt == "method_signature":
-            self._extract_method(node)
-        elif nt in ("constant_constructor_signature", "constructor_signature"):
-            self._extract_constructor(node)
-        else:
-            for child in node.children:
-                self._visit_node(child)
-            return
-
-        for child in node.children:
-            self._visit_node(child)
-
-    def _get_text(self, node: "Node") -> str:
-        return self.source_bytes[node.start_byte : node.end_byte].decode("utf-8", "replace")
-
-    def _child_by_type(self, node: "Node", *types: str) -> "Node | None":
-        for child in node.children:
-            if child.type in types:
-                return child
-        return None
-
-    def _extract_class(self, node: "Node") -> None:
-        name_node = self._child_by_type(node, "identifier")
-        if not name_node:
-            return
-
-        name = self._get_text(name_node)
-        is_abstract = any(c.type == "abstract" for c in node.children)
-        prefix = "abstract " if is_abstract else ""
-
-        sig = f"{prefix}class {name}"
-        supertype = self._child_by_type(node, "supertype")
-        if supertype:
-            sig += f" {self._get_text(supertype)}"
-
-        self.symbols.append(
-            Symbol(
-                name=name,
-                type="class",
-                file_path=self.file_path,
-                line_start=node.start_point[0] + 1,
-                line_end=node.end_point[0] + 1,
-                signature=sig[:100],
-            )
-        )
-
-        old = self._current_class
-        self._current_class = name
-        body = self._child_by_type(node, "class_body")
-        if body:
-            for child in body.children:
-                self._visit_node(child)
-        self._current_class = old
-
-    def _extract_mixin(self, node: "Node") -> None:
-        name_node = self._child_by_type(node, "identifier")
-        if not name_node:
-            return
-
-        name = self._get_text(name_node)
-        self.symbols.append(
-            Symbol(
-                name=name,
-                type="mixin",
-                file_path=self.file_path,
-                line_start=node.start_point[0] + 1,
-                line_end=node.end_point[0] + 1,
-                signature=f"mixin {name}",
-            )
-        )
-
-        old = self._current_class
-        self._current_class = name
-        body = self._child_by_type(node, "class_body")
-        if body:
-            for child in body.children:
-                self._visit_node(child)
-        self._current_class = old
-
-    def _extract_enum(self, node: "Node") -> None:
-        name_node = self._child_by_type(node, "identifier")
-        if not name_node:
-            return
-
-        name = self._get_text(name_node)
-        self.symbols.append(
-            Symbol(
-                name=name,
-                type="enum",
-                file_path=self.file_path,
-                line_start=node.start_point[0] + 1,
-                line_end=node.end_point[0] + 1,
-                signature=f"enum {name}",
-            )
-        )
-
-    def _extract_extension(self, node: "Node") -> None:
-        name_node = self._child_by_type(node, "identifier")
-        name = self._get_text(name_node) if name_node else "<anonymous>"
-
-        on_type = ""
-        for i, child in enumerate(node.children):
-            if child.type == "on":
-                rest = node.children[i + 1 :]
-                if rest:
-                    on_type = f" on {self._get_text(rest[0])}"
-                break
-
-        self.symbols.append(
-            Symbol(
-                name=name,
-                type="extension",
-                file_path=self.file_path,
-                line_start=node.start_point[0] + 1,
-                line_end=node.end_point[0] + 1,
-                signature=f"extension {name}{on_type}"[:100],
-            )
-        )
-
-        old = self._current_class
-        self._current_class = name
-        body = self._child_by_type(node, "class_body")
-        if body:
-            for child in body.children:
-                self._visit_node(child)
-        self._current_class = old
-
-    def _extract_function(self, node: "Node") -> None:
-        name_node = self._child_by_type(node, "identifier")
-        if not name_node:
-            return
-
-        name = self._get_text(name_node)
-        ret_type = ""
-        for child in node.children:
-            if child.type in ("type_identifier", "void_type", "nullable_type"):
-                ret_type = self._get_text(child) + " "
-                break
-
-        self.symbols.append(
-            Symbol(
-                name=name,
-                type="function",
-                file_path=self.file_path,
-                line_start=node.start_point[0] + 1,
-                line_end=node.end_point[0] + 1,
-                signature=f"{ret_type}{name}()"[:100],
-                dependencies=collect_dart_calls(node.next_sibling, self.source_bytes),
-            )
-        )
-
-    def _extract_method(self, node: "Node") -> None:
-        func_sig = self._child_by_type(node, "function_signature")
-        target = func_sig if func_sig else node
-        name_node = self._child_by_type(target, "identifier")
-        if not name_node:
-            return
-
-        name = self._get_text(name_node)
-        ret_type = ""
-        for child in target.children:
-            if child.type in ("type_identifier", "void_type", "nullable_type"):
-                ret_type = self._get_text(child) + " "
-                break
-
-        self.symbols.append(
-            Symbol(
-                name=name,
-                type="method",
-                file_path=self.file_path,
-                line_start=node.start_point[0] + 1,
-                line_end=node.end_point[0] + 1,
-                signature=f"{ret_type}{name}()"[:100],
-                parent=self._current_class,
-                dependencies=collect_dart_calls(node.next_sibling, self.source_bytes),
-            )
-        )
-
-    def _extract_constructor(self, node: "Node") -> None:
-        identifiers = [c for c in node.children if c.type == "identifier"]
-        if not identifiers:
-            return
-
-        name = self._get_text(identifiers[0])
-        self.symbols.append(
-            Symbol(
-                name=name,
-                type="constructor",
-                file_path=self.file_path,
-                line_start=node.start_point[0] + 1,
-                line_end=node.end_point[0] + 1,
-                signature=f"{name}()",
-                parent=self._current_class,
-            )
-        )
+        super().__init__(file_path, source, _DART_SPEC)

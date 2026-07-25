@@ -31,11 +31,19 @@ import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime
+from functools import partial
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from ._version import __version__
 from .colors import get_colors
+
+
+class _Analyzer(Protocol):
+    """Structural type for language analyzers exposing analyze()."""
+
+    def analyze(self) -> list["Symbol"]: ...
+
 
 # Supported languages and their extensions
 LANGUAGE_EXTENSIONS = {
@@ -43,6 +51,9 @@ LANGUAGE_EXTENSIONS = {
     "javascript": [".js", ".jsx", ".mjs"],
     "typescript": [".ts", ".tsx"],
     "java": [".java"],
+    "kotlin": [".kt", ".kts"],
+    "swift": [".swift"],
+    "csharp": [".cs"],
     "go": [".go"],
     "rust": [".rs"],
     "c": [".c", ".h"],
@@ -51,6 +62,30 @@ LANGUAGE_EXTENSIONS = {
     "php": [".php"],
     "dart": [".dart"],
 }
+
+# Languages analyzed by the spec-driven tree-sitter extractor
+# (codenav.languages). Python keeps its stdlib-AST analyzer.
+_SPEC_LANGUAGES = frozenset(
+    {
+        "javascript",
+        "typescript",
+        "ruby",
+        "go",
+        "rust",
+        "dart",
+        "java",
+        "kotlin",
+        "swift",
+        "csharp",
+        "c",
+        "cpp",
+        "php",
+    }
+)
+
+# Spec languages whose fallback prefers ast-grep ([fast]) before regex
+# (the languages ast-grep already supported before they got tree-sitter specs).
+_AST_GREP_TIER: frozenset[str] = frozenset({"java", "c", "cpp", "php"})
 
 DEFAULT_IGNORE_PATTERNS = [
     # Build artifacts and dependencies
@@ -1000,38 +1035,26 @@ class CodeNavigator:
             self.file_hashes[rel_path] = self.hash_file(content)
 
             language = self.get_language(file_path)
+            analyzer: _Analyzer
             if language == "python":
                 analyzer = PythonAnalyzer(rel_path, content)
-            elif language == "javascript":
-                from .js_ts_analyzer import JavaScriptAnalyzer
+            elif language in _SPEC_LANGUAGES:
+                from .languages import get_spec
+                from .languages.extractor import TreeSitterExtractor
 
-                is_jsx = file_path.suffix.lower() in (".jsx",)
-                analyzer = JavaScriptAnalyzer(rel_path, content, is_jsx=is_jsx)
-            elif language == "typescript":
-                from .js_ts_analyzer import TypeScriptAnalyzer
-
-                is_tsx = file_path.suffix.lower() in (".tsx",)
-                analyzer = TypeScriptAnalyzer(rel_path, content, is_tsx=is_tsx)
-            elif language == "ruby":
-                from .ruby_analyzer import RubyAnalyzer
-
-                analyzer = RubyAnalyzer(rel_path, content)
-            elif language == "go":
-                from .go_analyzer import GoAnalyzer
-
-                analyzer = GoAnalyzer(rel_path, content)
-            elif language == "rust":
-                from .rust_analyzer import RustAnalyzer
-
-                analyzer = RustAnalyzer(rel_path, content)
-            elif language == "dart":
-                from .dart_analyzer import DartAnalyzer
-
-                analyzer = DartAnalyzer(rel_path, content)
+                # For the ast-grep tier the extractor's fallback chain is
+                # tree-sitter → ast-grep ([fast]) → regex; otherwise the
+                # extractor degrades straight to the regex GenericAnalyzer.
+                fallback = None
+                if language in _AST_GREP_TIER:
+                    fallback = partial(self._analyze_fallback, rel_path, content, language)
+                spec = get_spec(language)
+                assert spec is not None
+                analyzer = TreeSitterExtractor(rel_path, content, spec, fallback=fallback)
             elif language:
-                # Languages with no dedicated AST analyzer (Java, C, C++, PHP):
-                # use ast-grep when available (real AST → parent linkage,
-                # better signatures), else the regex fallback.
+                # Languages with no tree-sitter spec: use ast-grep when
+                # available (real AST → parent linkage, better signatures),
+                # else the regex fallback.
                 return self._analyze_fallback(rel_path, content, language)
             else:
                 return []
