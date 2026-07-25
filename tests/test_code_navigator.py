@@ -294,7 +294,9 @@ class App:
             mapper = CodeNavigator(tmpdir)
             result = mapper.scan()
 
-            assert result["version"] == "1.0"
+            from codenav.code_navigator import INDEX_FORMAT_VERSION
+
+            assert result["version"] == INDEX_FORMAT_VERSION
             assert result["stats"]["files_processed"] == 1
             assert result["stats"]["symbols_found"] >= 2  # main + App
 
