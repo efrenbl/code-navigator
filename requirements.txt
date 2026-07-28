@@ -2,7 +2,7 @@
 # Core library has zero runtime dependencies (stdlib only).
 #
 # Optional extras:
-#   pip install codenav[mcp]    — MCP server (mcp>=1.0.0)
+#   pip install codenav[mcp]    — MCP server (mcp>=1.28.1,<2)
 #   pip install codenav[ast]    — JS/TS tree-sitter support
 #   pip install codenav[graph]  — Dependency graphs (networkx)
 #   pip install codenav[fast]   — ast-grep analyzer
