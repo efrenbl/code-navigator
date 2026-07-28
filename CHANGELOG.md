@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **The MCP server no longer fails to start on a fresh install.** The `mcp`
+  extra was pinned `>=1.28.1` with no upper bound, so a new install resolved
+  `mcp` 2.0.0, which removed `mcp.server.fastmcp` — the import
+  `codenav.mcp.server` depends on. The server never started. Now pinned
+  `mcp>=1.28.1,<2` in the `mcp`, `dev` and `all` extras. Installs made before
+  `mcp` 2.0 was published resolved 1.x and were unaffected, which is why this
+  surfaced late.
+- **The failure message no longer misdirects.** A missing `mcp` and an
+  incompatible `mcp` both raise `ImportError`, and both reported "MCP
+  dependencies not installed. Install with: pip install codenav[mcp]" — sending
+  the user after a package that was already present. The guard now resolves the
+  installed version and distinguishes the two cases, quoting the version it
+  found and the range codenav requires.
+
 ## [2.4.1] - 2026-07-25
 
 ### Documentation

@@ -52,7 +52,10 @@ mcp = [
     # >=1.28.1 fixes CVE-2026-59950 (WebSocket transport missing Host/Origin
     # validation). Codenav runs FastMCP over stdio so exposure is low, but keep
     # the floor patched so consumers never resolve a vulnerable mcp.
-    "mcp>=1.28.1",
+    # <2 because mcp 2.0 removed mcp.server.fastmcp, which codenav.mcp.server
+    # imports: without the ceiling a fresh install resolves 2.x and the server
+    # never starts.
+    "mcp>=1.28.1,<2",
 ]
 dev = [
     "pytest>=7.0.0",
@@ -61,7 +64,7 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.0.0",
     "build>=1.0.0",
-    "mcp>=1.28.1",
+    "mcp>=1.28.1,<2",
 ]
 ast = [
     # One dependency, 160+ pre-compiled grammars (incl. JS/TS, Ruby, Go,
@@ -88,7 +91,7 @@ fast = [
     "ast-grep-py>=0.40.0",
 ]
 all = [
-    "mcp>=1.28.1",
+    "mcp>=1.28.1,<2",
     "tree-sitter>=0.23.0",
     "tree-sitter-language-pack>=1.10.0",
     "networkx>=3.0",
