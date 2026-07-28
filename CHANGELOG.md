@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.2] - 2026-07-28
+
 ### Fixed
 - **The MCP server no longer fails to start on a fresh install.** The `mcp`
   extra was pinned `>=1.28.1` with no upper bound, so a new install resolved
@@ -21,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the user after a package that was already present. The guard now resolves the
   installed version and distinguishes the two cases, quoting the version it
   found and the range codenav requires.
+
+### Documentation
+- `requirements.txt` quoted a stale `mcp>=1.0.0` for the `[mcp]` extra; it now
+  matches the real pin.
 
 ## [2.4.1] - 2026-07-25
 
@@ -548,7 +554,8 @@ None at this time.
 
 ---
 
-[Unreleased]: https://github.com/efrenbl/code-navigator/compare/v2.4.1...HEAD
+[Unreleased]: https://github.com/efrenbl/code-navigator/compare/v2.4.2...HEAD
+[2.4.2]: https://github.com/efrenbl/code-navigator/compare/v2.4.1...v2.4.2
 [2.4.1]: https://github.com/efrenbl/code-navigator/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/efrenbl/code-navigator/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/efrenbl/code-navigator/compare/v2.2.9...v2.3.0
